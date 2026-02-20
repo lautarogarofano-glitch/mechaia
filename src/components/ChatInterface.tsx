@@ -8,7 +8,6 @@ interface ChatInterfaceProps {
 
 const getAIResponse = (userMessage: string, vehicle: VehicleData, messageCount: number): string => {
   const lowerMsg = userMessage.toLowerCase();
-  
   if (messageCount === 1) {
     return `Entendido. Tenés un ${vehicle.marca} ${vehicle.modelo} ${vehicle.año} con motor ${vehicle.motor}, y el problema es: "${vehicle.falla}".
 
@@ -16,7 +15,6 @@ Voy a ayudarte a diagnosticar esto paso a paso. Primero, contame:
 
 ¿La falla es constante o intermitente? ¿Aparece siempre que usás el auto o solo en ciertas condiciones (frío, caliente, en ruta, en ciudad)?`;
   }
-
   if (lowerMsg.includes('frío') || lowerMsg.includes('frio') || lowerMsg.includes('caliente')) {
     return `Perfecto, eso me da una pista importante.
 
@@ -24,7 +22,6 @@ Siguiente pregunta: ¿Tenés la luz de check engine encendida en el tablero? Si 
 
 Y si tenés scanner, ¿qué códigos te arroja?`;
   }
-
   return `Entiendo. Con esa información, sigamos analizando.
 
 ¿Podés verificar esto para mí?
@@ -37,46 +34,37 @@ Y si tenés scanner, ¿qué códigos te arroja?`;
 };
 
 export function ChatInterface({ vehicle, onBack }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: `¡Hola! Soy MechaIA, tu asistente de diagnóstico automotriz. 🚗🔧
+  const [messages, setMessages] = useState<Message[]>([{
+    id: '1',
+    role: 'assistant',
+    content: `¡Hola! Soy MechaIA, tu asistente de diagnóstico automotriz. 🚗🔧
 
 Voy a ayudarte con el ${vehicle.marca} ${vehicle.modelo} patente ${vehicle.patente}. Ya tengo cargados los datos del vehículo.
 
 Contame más sobre la falla: ${vehicle.falla}
 
 ¿Hace cuánto apareció este problema? ¿Fue de repente o fue empeorando gradualmente?`,
-      timestamp: new Date(),
-    },
-  ]);
+    timestamp: new Date(),
+  }]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSend = async () => {
     if (!inputValue.trim()) return;
-
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: inputValue,
       timestamp: new Date(),
     };
-
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsTyping(true);
-
     setTimeout(() => {
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
@@ -112,7 +100,6 @@ Contame más sobre la falla: ${vehicle.falla}
           </div>
         </div>
       </header>
-
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
         {messages.map((message) => (
           <div key={message.id} className={`flex gap-4 ${message.role === 'assistant' ? 'justify-start' : 'justify-end'}`}>
@@ -132,7 +119,6 @@ Contame más sobre la falla: ${vehicle.falla}
             )}
           </div>
         ))}
-        
         {isTyping && (
           <div className="flex gap-4 justify-start">
             <div className="w-8 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
@@ -149,7 +135,6 @@ Contame más sobre la falla: ${vehicle.falla}
         )}
         <div ref={messagesEndRef} />
       </div>
-
       <div className="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
         <div className="max-w-3xl mx-auto flex gap-3">
           <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={handleKeyDown} placeholder="Escribí tu respuesta..." className="flex-1 h-12 px-4 bg-slate-100 dark:bg-slate-700 border-0 rounded-xl text-slate-900 dark:text-white" />

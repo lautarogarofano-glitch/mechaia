@@ -30,12 +30,10 @@ export function HistorySidebar({ sessions, onSelectSession, onNewSession }: Hist
         </div>
         <button onClick={onNewSession} className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium">+ Nuevo Diagnóstico</button>
       </div>
-
       <div className="flex-1 overflow-y-auto p-3">
         <div className="flex items-center gap-2 mb-3 px-2">
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">🕐 Historial</span>
         </div>
-
         {sessions.length === 0 ? (
           <div className="text-center py-8 px-4">
             <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -64,7 +62,6 @@ export function HistorySidebar({ sessions, onSelectSession, onNewSession }: Hist
           </div>
         )}
       </div>
-
       <div className="p-4 border-t border-slate-200 dark:border-slate-700">
         <p className="text-xs text-center text-slate-400 dark:text-slate-500">MechaIA v1.0 · Argentina 🇦🇷</p>
       </div>
