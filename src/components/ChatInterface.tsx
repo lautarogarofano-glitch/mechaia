@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import type { VehicleData, Message } from '../types/vehicle';
 
 interface ChatInterfaceProps {
   vehicle: VehicleData;
   onBack: () => void;
+  diagnosticId?: string; // ID del diagnóstico en Supabase
 }
 
-export function ChatInterface({ vehicle, onBack }: ChatInterfaceProps) {
+export function ChatInterface({ vehicle, onBack, diagnosticId }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -33,6 +35,16 @@ Contame más sobre la falla: "${vehicle.falla}"
     scrollToBottom();
   }, [messages]);
 
+  // Guardar conversación en Supabase
+  const saveConversation = async (updatedMessages: Message[]) => {
+    if (diagnosticId) {
+      await supabase
+        .from('diagnostics')
+        .update({ conversacion: updatedMessages })
+        .eq('id', diagnosticId);
+    }
+  };
+
   const handleSend = async () => {
     if (!inputValue.trim()) return;
 
@@ -43,9 +55,13 @@ Contame más sobre la falla: "${vehicle.falla}"
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInputValue('');
     setIsTyping(true);
+
+    // Guardar mensaje del usuario
+    await saveConversation(updatedMessages);
 
     try {
       // Llamada a la API de OpenAI
@@ -55,7 +71,7 @@ Contame más sobre la falla: "${vehicle.falla}"
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          messages: [...messages, userMessage].map(m => ({
+          messages: updatedMessages.map(m => ({
             role: m.role,
             content: m.content,
           })),
@@ -72,7 +88,11 @@ Contame más sobre la falla: "${vehicle.falla}"
         timestamp: new Date(),
       };
 
-      setMessages(prev => [...prev, aiResponse]);
+      const finalMessages = [...updatedMessages, aiResponse];
+      setMessages(finalMessages);
+      
+      // Guardar respuesta de la IA
+      await saveConversation(finalMessages);
     } catch (error) {
       console.error('Error:', error);
       const errorResponse: Message = {
@@ -81,7 +101,9 @@ Contame más sobre la falla: "${vehicle.falla}"
         content: 'Disculpá, estoy teniendo problemas técnicos. Probá de nuevo en unos segundos.',
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, errorResponse]);
+      const finalMessages = [...updatedMessages, errorResponse];
+      setMessages(finalMessages);
+      await saveConversation(finalMessages);
     } finally {
       setIsTyping(false);
     }

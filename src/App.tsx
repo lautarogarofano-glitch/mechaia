@@ -12,6 +12,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState<'form' | 'chat'>('form');
   const [currentVehicle, setCurrentVehicle] = useState<VehicleData | null>(null);
+  const [currentDiagnosticId, setCurrentDiagnosticId] = useState<string | undefined>(undefined);
   const [sessions, setSessions] = useState<DiagnosisSession[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -70,49 +71,48 @@ function App() {
     
     // Guardar en Supabase
     if (user) {
-      const { error } = await supabase.from('diagnostics').insert({
-        user_id: user.id,
-        patente: data.patente,
-        marca: data.marca,
-        modelo: data.modelo,
-        año: data.año,
-        motor: data.motor,
-        ecu: data.ecu,
-        falla: data.falla,
-        codigo_obd: data.codigoObd,
-        kilometraje: data.kilometraje,
-        conversacion: [],
-      });
+      const { data: inserted, error } = await supabase
+        .from('diagnostics')
+        .insert({
+          user_id: user.id,
+          patente: data.patente,
+          marca: data.marca,
+          modelo: data.modelo,
+          año: data.año,
+          motor: data.motor,
+          ecu: data.ecu,
+          falla: data.falla,
+          codigo_obd: data.codigoObd,
+          kilometraje: data.kilometraje,
+          conversacion: [],
+        })
+        .select()
+        .single();
 
-      if (!error) {
+      if (!error && inserted) {
+        setCurrentDiagnosticId(inserted.id);
         loadUserDiagnostics();
       }
     }
 
-    const newSession: DiagnosisSession = {
-      id: Date.now().toString(),
-      vehicle: data,
-      messages: [],
-      createdAt: new Date(),
-      status: 'active',
-    };
-    
-    setSessions(prev => [newSession, ...prev]);
     setCurrentView('chat');
   };
 
   const handleBackToForm = () => {
     setCurrentView('form');
     setCurrentVehicle(null);
+    setCurrentDiagnosticId(undefined);
   };
 
   const handleNewSession = () => {
     setCurrentView('form');
     setCurrentVehicle(null);
+    setCurrentDiagnosticId(undefined);
   };
 
   const handleSelectSession = (session: DiagnosisSession) => {
     setCurrentVehicle(session.vehicle);
+    setCurrentDiagnosticId(session.id);
     setCurrentView('chat');
     setSidebarOpen(false);
   };
@@ -123,6 +123,7 @@ function App() {
     setSessions([]);
     setCurrentView('form');
     setCurrentVehicle(null);
+    setCurrentDiagnosticId(undefined);
   };
 
   // Mostrar loading
@@ -222,6 +223,7 @@ function App() {
             <ChatInterface 
               vehicle={currentVehicle} 
               onBack={handleBackToForm}
+              diagnosticId={currentDiagnosticId}
             />
           ) : null}
         </main>
