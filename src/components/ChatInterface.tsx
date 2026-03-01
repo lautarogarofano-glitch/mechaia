@@ -5,10 +5,13 @@ import type { VehicleData, Message } from '../types/vehicle';
 interface ChatInterfaceProps {
   vehicle: VehicleData;
   onBack: () => void;
-  diagnosticId?: string; // ID del diagnóstico en Supabase
+  diagnosticId?: string;
 }
 
 export function ChatInterface({ vehicle, onBack, diagnosticId }: ChatInterfaceProps) {
+  // Log para debuggear
+  console.log('ChatInterface - diagnosticId:', diagnosticId);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -37,11 +40,28 @@ Contame más sobre la falla: "${vehicle.falla}"
 
   // Guardar conversación en Supabase
   const saveConversation = async (updatedMessages: Message[]) => {
-    if (diagnosticId) {
-      await supabase
+    console.log('saveConversation - diagnosticId:', diagnosticId);
+    console.log('saveConversation - messages:', updatedMessages);
+
+    if (!diagnosticId) {
+      console.log('saveConversation - No diagnosticId, skipping save');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
         .from('diagnostics')
         .update({ conversacion: updatedMessages })
-        .eq('id', diagnosticId);
+        .eq('id', diagnosticId)
+        .select();
+
+      console.log('saveConversation - response:', data, error);
+
+      if (error) {
+        console.error('Error saving conversation:', error);
+      }
+    } catch (err) {
+      console.error('Exception saving conversation:', err);
     }
   };
 
