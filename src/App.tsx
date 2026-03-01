@@ -23,7 +23,6 @@ function App() {
       setLoading(false);
     });
 
-    // Escuchar cambios de auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
