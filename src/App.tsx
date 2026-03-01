@@ -4,7 +4,7 @@ import { ChatInterface } from './components/ChatInterface';
 import { HistorySidebar } from './components/HistorySidebar';
 import { Auth } from './components/Auth';
 import { supabase } from './lib/supabase';
-import type { VehicleData, DiagnosisSession } from './types/vehicle';
+import type { VehicleData, DiagnosisSession, Message } from './types/vehicle';
 import './App.css';
 
 function App() {
@@ -13,6 +13,7 @@ function App() {
   const [currentView, setCurrentView] = useState<'form' | 'chat'>('form');
   const [currentVehicle, setCurrentVehicle] = useState<VehicleData | null>(null);
   const [currentDiagnosticId, setCurrentDiagnosticId] = useState<string | undefined>(undefined);
+  const [currentMessages, setCurrentMessages] = useState<Message[] | undefined>(undefined);
   const [sessions, setSessions] = useState<DiagnosisSession[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -67,6 +68,7 @@ function App() {
 
   const handleVehicleSubmit = async (data: VehicleData) => {
     setCurrentVehicle(data);
+    setCurrentMessages(undefined); // Nuevo diagnóstico, sin mensajes previos
     
     // Guardar en Supabase
     if (user) {
@@ -101,17 +103,20 @@ function App() {
     setCurrentView('form');
     setCurrentVehicle(null);
     setCurrentDiagnosticId(undefined);
+    setCurrentMessages(undefined);
   };
 
   const handleNewSession = () => {
     setCurrentView('form');
     setCurrentVehicle(null);
     setCurrentDiagnosticId(undefined);
+    setCurrentMessages(undefined);
   };
 
   const handleSelectSession = (session: DiagnosisSession) => {
     setCurrentVehicle(session.vehicle);
     setCurrentDiagnosticId(session.id);
+    setCurrentMessages(session.messages); // Cargar mensajes guardados
     setCurrentView('chat');
     setSidebarOpen(false);
   };
@@ -123,6 +128,7 @@ function App() {
     setCurrentView('form');
     setCurrentVehicle(null);
     setCurrentDiagnosticId(undefined);
+    setCurrentMessages(undefined);
   };
 
   // Mostrar loading
@@ -223,6 +229,7 @@ function App() {
               vehicle={currentVehicle} 
               onBack={handleBackToForm}
               diagnosticId={currentDiagnosticId}
+              initialMessages={currentMessages}
             />
           ) : null}
         </main>
