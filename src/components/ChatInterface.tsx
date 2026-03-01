@@ -9,6 +9,15 @@ interface ChatInterfaceProps {
   initialMessages?: Message[];
 }
 
+// Función para convertir timestamps de string a Date
+const parseMessages = (messages: Message[] | undefined): Message[] => {
+  if (!messages || messages.length === 0) return [];
+  return messages.map(m => ({
+    ...m,
+    timestamp: new Date(m.timestamp),
+  }));
+};
+
 export function ChatInterface({ vehicle, onBack, diagnosticId, initialMessages }: ChatInterfaceProps) {
   const defaultMessage: Message = {
     id: '1',
@@ -23,7 +32,11 @@ Contame más sobre la falla: "${vehicle.falla}"
     timestamp: new Date(),
   };
 
-  const [messages, setMessages] = useState<Message[]>(initialMessages && initialMessages.length > 0 ? initialMessages : [defaultMessage]);
+  const [messages, setMessages] = useState<Message[]>(
+    initialMessages && initialMessages.length > 0 
+      ? parseMessages(initialMessages) 
+      : [defaultMessage]
+  );
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [hasSavedInitial, setHasSavedInitial] = useState(false);
@@ -193,7 +206,9 @@ Contame más sobre la falla: "${vehicle.falla}"
                   message.role === 'assistant' ? 'text-slate-400' : 'text-blue-200'
                 }`}
               >
-                {message.timestamp.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                {message.timestamp instanceof Date 
+                  ? message.timestamp.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+                  : ''}
               </div>
             </div>
             {message.role === 'user' && (
