@@ -6,29 +6,43 @@ interface ChatInterfaceProps {
   vehicle: VehicleData;
   onBack: () => void;
   diagnosticId?: string;
+  initialMessages?: Message[];
 }
 
-export function ChatInterface({ vehicle, onBack, diagnosticId }: ChatInterfaceProps) {
-  // Log para debuggear
-  console.log('ChatInterface - diagnosticId:', diagnosticId);
-
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: `¡Hola! Soy MechaIA, tu asistente de diagnóstico automotriz. 🚗🔧
+export function ChatInterface({ vehicle, onBack, diagnosticId, initialMessages }: ChatInterfaceProps) {
+  const defaultMessage: Message = {
+    id: '1',
+    role: 'assistant',
+    content: `¡Hola! Soy MechaIA, tu asistente de diagnóstico automotriz. 🚗🔧
 
 Voy a ayudarte con el ${vehicle.marca} ${vehicle.modelo} patente ${vehicle.patente}.
 
 Contame más sobre la falla: "${vehicle.falla}"
 
 ¿Hace cuánto apareció este problema? ¿Fue de repente o fue empeorando gradualmente?`,
-      timestamp: new Date(),
-    },
-  ]);
+    timestamp: new Date(),
+  };
+
+  const [messages, setMessages] = useState<Message[]>(initialMessages && initialMessages.length > 0 ? initialMessages : [defaultMessage]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [hasSavedInitial, setHasSavedInitial] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Guardar conversación inicial si no hay mensajes previos
+  useEffect(() => {
+    const saveInitialMessage = async () => {
+      if (diagnosticId && !hasSavedInitial && (!initialMessages || initialMessages.length === 0)) {
+        console.log('Saving initial message');
+        await supabase
+          .from('diagnostics')
+          .update({ conversacion: [defaultMessage] })
+          .eq('id', diagnosticId);
+        setHasSavedInitial(true);
+      }
+    };
+    saveInitialMessage();
+  }, [diagnosticId, initialMessages, hasSavedInitial]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,7 +55,7 @@ Contame más sobre la falla: "${vehicle.falla}"
   // Guardar conversación en Supabase
   const saveConversation = async (updatedMessages: Message[]) => {
     console.log('saveConversation - diagnosticId:', diagnosticId);
-    console.log('saveConversation - messages:', updatedMessages);
+    console.log('saveConversation - messages count:', updatedMessages.length);
 
     if (!diagnosticId) {
       console.log('saveConversation - No diagnosticId, skipping save');
@@ -55,7 +69,7 @@ Contame más sobre la falla: "${vehicle.falla}"
         .eq('id', diagnosticId)
         .select();
 
-      console.log('saveConversation - response:', data, error);
+      console.log('saveConversation - response:', data ? 'success' : 'no data', 'error:', error);
 
       if (error) {
         console.error('Error saving conversation:', error);
