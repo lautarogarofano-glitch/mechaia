@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { supabase } from '../lib/supabase';
 import type { VehicleData, Message } from '../types/vehicle';
 
@@ -200,7 +201,13 @@ Contame más sobre la falla: "${vehicle.falla}"
                   : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'
               }`}
             >
-              <div className="text-sm leading-relaxed">{message.content}</div>
+              <div className="text-sm leading-relaxed">
+                {message.role === 'assistant' ? (
+                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                ) : (
+                  message.content
+                )}
+              </div>
               <div
                 className={`text-xs mt-2 ${
                   message.role === 'assistant' ? 'text-slate-400' : 'text-blue-200'
