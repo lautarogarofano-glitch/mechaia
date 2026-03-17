@@ -1,17 +1,61 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
+import { createClient } from '@supabase/supabase-js';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
+
+// Rate limiting: 30 requests por IP por minuto
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 30;
+const RATE_WINDOW = 60 * 1000;
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW });
+    return false;
+  }
+  if (entry.count >= RATE_LIMIT) return true;
+  entry.count++;
+  return false;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Rate limiting
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 'unknown';
+  if (isRateLimited(ip)) {
+    return res.status(429).json({ error: 'Demasiadas solicitudes. Esperá un minuto.' });
+  }
+
+  // Validación de autenticación
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+  const token = authHeader.split(' ')[1];
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (supabaseUrl && supabaseKey) {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { error: authError } = await supabase.auth.getUser(token);
+    if (authError) {
+      return res.status(401).json({ error: 'Token inválido o expirado' });
+    }
+  }
+
   try {
     const { messages, vehicle } = req.body;
+
+    if (!messages || !vehicle) {
+      return res.status(400).json({ error: 'Faltan datos requeridos' });
+    }
 
     const systemPrompt = `Eres MechaIA, un asistente experto en diagnóstico automotriz con más de 20 años de experiencia en talleres mecánicos de toda Latinoamérica.
 
@@ -51,7 +95,7 @@ Recordá: sos un asistente técnico de alto nivel. Tu objetivo es guiar al mecá
       role: m.role as 'user' | 'assistant',
       content: m.content,
     }));
-    const firstUserIndex = allMessages.findIndex(m => m.role === 'user');
+    const firstUserIndex = allMessages.findIndex((m: { role: string }) => m.role === 'user');
     const trimmedMessages = firstUserIndex >= 0 ? allMessages.slice(firstUserIndex) : allMessages;
     // Remove trailing assistant messages — Anthropic requires conversation to end with user
     let lastIdx = trimmedMessages.length - 1;
@@ -68,10 +112,9 @@ Recordá: sos un asistente técnico de alto nivel. Tu objetivo es guiar al mecá
     const reply = response.content[0].type === 'text' ? response.content[0].text : '';
 
     res.status(200).json({ reply });
-  } catch (error: any) {
-    console.error('Error completo:', JSON.stringify(error, null, 2));
-    console.error('Error message:', error?.message);
-    console.error('Error status:', error?.status);
+  } catch (error: unknown) {
+    const err = error as { message?: string; status?: number };
+    console.error('Error:', err?.message, err?.status);
     res.status(500).json({
       error: 'Error procesando el diagnóstico',
       reply: 'Disculpá, estoy teniendo problemas técnicos. Probá de nuevo en unos segundos.',

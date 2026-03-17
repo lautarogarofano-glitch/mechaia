@@ -8,6 +8,8 @@ interface ChatInterfaceProps {
   onBack: () => void;
   diagnosticId?: string;
   initialMessages?: Message[];
+  isCompleted?: boolean;
+  onComplete?: () => void;
 }
 
 // Función para convertir timestamps de string a Date
@@ -19,7 +21,7 @@ const parseMessages = (messages: Message[] | undefined): Message[] => {
   }));
 };
 
-export function ChatInterface({ vehicle, onBack, diagnosticId, initialMessages }: ChatInterfaceProps) {
+export function ChatInterface({ vehicle, onBack, diagnosticId, initialMessages, isCompleted = false, onComplete }: ChatInterfaceProps) {
   const defaultMessage: Message = {
     id: '1',
     role: 'assistant',
@@ -34,8 +36,8 @@ Contame más sobre la falla: "${vehicle.falla}"
   };
 
   const [messages, setMessages] = useState<Message[]>(
-    initialMessages && initialMessages.length > 0 
-      ? parseMessages(initialMessages) 
+    initialMessages && initialMessages.length > 0
+      ? parseMessages(initialMessages)
       : [defaultMessage]
   );
   const [inputValue, setInputValue] = useState('');
@@ -47,7 +49,6 @@ Contame más sobre la falla: "${vehicle.falla}"
   useEffect(() => {
     const saveInitialMessage = async () => {
       if (diagnosticId && !hasSavedInitial && (!initialMessages || initialMessages.length === 0)) {
-        console.log('Saving initial message');
         await supabase
           .from('diagnostics')
           .update({ conversacion: [defaultMessage] })
@@ -68,22 +69,13 @@ Contame más sobre la falla: "${vehicle.falla}"
 
   // Guardar conversación en Supabase
   const saveConversation = async (updatedMessages: Message[]) => {
-    console.log('saveConversation - diagnosticId:', diagnosticId);
-    console.log('saveConversation - messages count:', updatedMessages.length);
-
-    if (!diagnosticId) {
-      console.log('saveConversation - No diagnosticId, skipping save');
-      return;
-    }
+    if (!diagnosticId) return;
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('diagnostics')
         .update({ conversacion: updatedMessages })
-        .eq('id', diagnosticId)
-        .select();
-
-      console.log('saveConversation - response:', data ? 'success' : 'no data', 'error:', error);
+        .eq('id', diagnosticId);
 
       if (error) {
         console.error('Error saving conversation:', error);
@@ -94,7 +86,7 @@ Contame más sobre la falla: "${vehicle.falla}"
   };
 
   const handleSend = async () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isCompleted) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -112,11 +104,14 @@ Contame más sobre la falla: "${vehicle.falla}"
     await saveConversation(updatedMessages);
 
     try {
-      // Llamada a la API de OpenAI
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
+
       const response = await fetch('/api/diagnose', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           messages: updatedMessages.map(m => ({
@@ -138,8 +133,6 @@ Contame más sobre la falla: "${vehicle.falla}"
 
       const finalMessages = [...updatedMessages, aiResponse];
       setMessages(finalMessages);
-      
-      // Guardar respuesta de la IA
       await saveConversation(finalMessages);
     } catch (error) {
       console.error('Error:', error);
@@ -168,10 +161,10 @@ Contame más sobre la falla: "${vehicle.falla}"
     <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-900">
       <header className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-2 rounded-full hover:bg-slate-100">←</button>
+          <button onClick={onBack} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">←</button>
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold">M</span>
+            <div className="w-10 h-10 rounded-xl overflow-hidden">
+              <img src="/logo.png" alt="MechaIA" className="w-10 h-10 object-contain" />
             </div>
             <div>
               <h2 className="font-semibold text-slate-900 dark:text-white text-sm">MechaIA</h2>
@@ -180,6 +173,22 @@ Contame más sobre la falla: "${vehicle.falla}"
               </p>
             </div>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {isCompleted ? (
+            <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium rounded-full">
+              ✓ Completado
+            </span>
+          ) : (
+            onComplete && (
+              <button
+                onClick={onComplete}
+                className="px-3 py-1.5 text-xs font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              >
+                Marcar completado
+              </button>
+            )
+          )}
         </div>
       </header>
 
@@ -213,7 +222,7 @@ Contame más sobre la falla: "${vehicle.falla}"
                   message.role === 'assistant' ? 'text-slate-400' : 'text-blue-200'
                 }`}
               >
-                {message.timestamp instanceof Date 
+                {message.timestamp instanceof Date
                   ? message.timestamp.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
                   : ''}
               </div>
@@ -244,26 +253,37 @@ Contame más sobre la falla: "${vehicle.falla}"
       </div>
 
       <div className="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
-        <div className="max-w-3xl mx-auto flex gap-3">
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Escribí tu respuesta..."
-            className="flex-1 h-12 px-4 bg-slate-100 dark:bg-slate-700 border-0 rounded-xl text-slate-900 dark:text-white"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!inputValue.trim() || isTyping}
-            className="h-12 w-12 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl disabled:opacity-50"
-          >
-            ➤
-          </button>
-        </div>
-        <p className="text-center text-xs text-slate-400 mt-2">
-          MechaIA es un asistente de diagnóstico. Siempre verificá las recomendaciones.
-        </p>
+        {isCompleted ? (
+          <div className="text-center py-2">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Este diagnóstico fue marcado como completado.</p>
+            <button onClick={onBack} className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              ← Volver al inicio
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="max-w-3xl mx-auto flex gap-3">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Escribí tu respuesta..."
+                className="flex-1 h-12 px-4 bg-slate-100 dark:bg-slate-700 border-0 rounded-xl text-slate-900 dark:text-white"
+              />
+              <button
+                onClick={handleSend}
+                disabled={!inputValue.trim() || isTyping}
+                className="h-12 w-12 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl disabled:opacity-50"
+              >
+                ➤
+              </button>
+            </div>
+            <p className="text-center text-xs text-slate-400 mt-2">
+              MechaIA es un asistente de diagnóstico. Siempre verificá las recomendaciones.
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
