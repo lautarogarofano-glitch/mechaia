@@ -4,6 +4,7 @@ import { ChatInterface } from './components/ChatInterface';
 import { HistorySidebar } from './components/HistorySidebar';
 import { Auth } from './components/Auth';
 import { Pricing } from './components/Pricing';
+import { AdminDashboard } from './components/AdminDashboard';
 import { supabase } from './lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { VehicleData, DiagnosisSession, Message, Subscription } from './types/vehicle';
@@ -12,7 +13,8 @@ import './App.css';
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<'form' | 'chat'>('form');
+  const [currentView, setCurrentView] = useState<'form' | 'chat' | 'admin'>('form');
+  const isAdmin = user?.email === import.meta.env.VITE_ADMIN_EMAIL;
   const [currentVehicle, setCurrentVehicle] = useState<VehicleData | null>(null);
   const [currentDiagnosticId, setCurrentDiagnosticId] = useState<string | undefined>(undefined);
   const [currentMessages, setCurrentMessages] = useState<Message[] | undefined>(undefined);
@@ -309,6 +311,14 @@ function App() {
               <span className="text-sm text-slate-500 dark:text-slate-400 hidden sm:inline">
                 {user.email}
               </span>
+              {isAdmin && (
+                <button
+                  onClick={() => setCurrentView('admin')}
+                  className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                >
+                  Admin
+                </button>
+              )}
               <button
                 onClick={handleLogout}
                 className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -333,7 +343,9 @@ function App() {
               <button onClick={loadUserDiagnostics} className="ml-4 underline text-xs">Reintentar</button>
             </div>
           )}
-          {currentView === 'form' ? (
+          {currentView === 'admin' && user ? (
+            <AdminDashboard user={user} onBack={() => setCurrentView('form')} />
+          ) : currentView === 'form' ? (
             <div className="pt-8">
               <VehicleForm onSubmit={handleVehicleSubmit} />
             </div>
