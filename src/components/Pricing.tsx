@@ -3,9 +3,10 @@ import { supabase } from '../lib/supabase';
 
 interface PricingProps {
   onBack?: () => void;
+  trialExhausted?: boolean;
 }
 
-export function Pricing({ onBack }: PricingProps) {
+export function Pricing({ onBack, trialExhausted }: PricingProps) {
   const [loading, setLoading] = useState<'base' | 'turbo' | null>(null);
   const [error, setError] = useState('');
 
@@ -43,9 +44,13 @@ export function Pricing({ onBack }: PricingProps) {
       <div className="w-full max-w-4xl">
         <div className="text-center mb-10">
           <img src="/logo.png" alt="MechaIA" className="w-16 h-16 object-contain mx-auto mb-4" />
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Elegí tu plan</h1>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+            {trialExhausted ? '¡Usaste tus 5 diagnósticos gratis!' : 'Elegí tu plan'}
+          </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-2">
-            Diagnósticos precisos para tu taller. Cancelá cuando quieras.
+            {trialExhausted
+              ? 'Suscribite para seguir diagnosticando sin límites.'
+              : 'Diagnósticos precisos para tu taller. Cancelá cuando quieras.'}
           </p>
         </div>
 

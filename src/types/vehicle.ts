@@ -27,7 +27,8 @@ export interface DiagnosisSession {
 
 export interface Subscription {
   plan: 'base' | 'turbo';
-  status: 'active' | 'inactive' | 'cancelled' | 'past_due' | 'trialing';
+  status: 'trial' | 'active' | 'inactive' | 'cancelled' | 'past_due';
   messages_used: number;
   messages_limit: number | null;
+  trial_diagnostics_remaining: number;
 }

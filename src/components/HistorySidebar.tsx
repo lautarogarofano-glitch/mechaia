@@ -131,7 +131,24 @@ export function HistorySidebar({ sessions, onSelectSession, onNewSession, onDele
       </div>
 
       <div className="p-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
-        {subscription && subscription.messages_limit !== null && (
+        {subscription?.status === 'trial' && (
+          <div>
+            <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
+              <span>Diagnósticos gratuitos</span>
+              <span className="font-medium text-blue-600 dark:text-blue-400">
+                {subscription.trial_diagnostics_remaining} restantes
+              </span>
+            </div>
+            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
+              <div
+                className="bg-blue-600 h-1.5 rounded-full transition-all"
+                style={{ width: `${(subscription.trial_diagnostics_remaining / 5) * 100}%` }}
+              />
+            </div>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Prueba gratuita · Plan Turbo</p>
+          </div>
+        )}
+        {subscription?.status === 'active' && subscription.messages_limit !== null && (
           <div>
             <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
               <span>Mensajes usados</span>
@@ -146,7 +163,7 @@ export function HistorySidebar({ sessions, onSelectSession, onNewSession, onDele
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Plan Base</p>
           </div>
         )}
-        {subscription && subscription.messages_limit === null && (
+        {subscription?.status === 'active' && subscription.messages_limit === null && (
           <p className="text-xs text-slate-400 dark:text-slate-500">Plan Turbo · Mensajes ilimitados</p>
         )}
         <p className="text-xs text-center text-slate-400 dark:text-slate-500">MechaIA v1.0 · Argentina 🇦🇷</p>

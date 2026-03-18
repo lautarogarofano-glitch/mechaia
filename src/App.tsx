@@ -58,9 +58,26 @@ function App() {
   const loadSubscription = async () => {
     const { data } = await supabase
       .from('subscriptions')
-      .select('plan, status, messages_used, messages_limit')
+      .select('plan, status, messages_used, messages_limit, trial_diagnostics_remaining')
       .single();
-    setSubscription(data as Subscription | null);
+
+    if (data) {
+      setSubscription(data as Subscription);
+    } else {
+      // Usuario nuevo — crear trial automáticamente
+      const { data: newSub } = await supabase
+        .from('subscriptions')
+        .insert({
+          user_id: user?.id,
+          plan: 'turbo',
+          status: 'trial',
+          trial_diagnostics_remaining: 5,
+          messages_limit: null,
+        })
+        .select()
+        .single();
+      setSubscription(newSub as Subscription);
+    }
   };
 
   const loadUserDiagnostics = async () => {
@@ -126,6 +143,16 @@ function App() {
       if (!error && inserted) {
         setCurrentDiagnosticId(inserted.id);
         loadUserDiagnostics();
+
+        // Decrementar trial si aplica
+        if (subscription && subscription !== 'loading' && subscription.status === 'trial') {
+          const remaining = subscription.trial_diagnostics_remaining - 1;
+          await supabase
+            .from('subscriptions')
+            .update({ trial_diagnostics_remaining: remaining, updated_at: new Date().toISOString() })
+            .eq('user_id', user.id);
+          setSubscription({ ...subscription, trial_diagnostics_remaining: remaining });
+        }
       }
     }
 
@@ -221,8 +248,12 @@ function App() {
     );
   }
 
-  if (!subscription || subscription.status !== 'active') {
-    return <Pricing />;
+  if (subscription && typeof subscription !== 'string') {
+    const isTrialExhausted = subscription.status === 'trial' && subscription.trial_diagnostics_remaining <= 0;
+    const isInactive = !['active', 'trial'].includes(subscription.status);
+    if (isTrialExhausted || isInactive) {
+      return <Pricing trialExhausted={isTrialExhausted} />;
+    }
   }
 
   return (

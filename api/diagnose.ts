@@ -59,18 +59,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
   const { data: subscription } = await supabaseAdmin
     .from('subscriptions')
-    .select('status, plan, messages_used, messages_limit')
+    .select('status, plan, messages_used, messages_limit, trial_diagnostics_remaining')
     .eq('user_id', user.id)
     .single();
 
-  if (!subscription || subscription.status !== 'active') {
+  const isActive = subscription?.status === 'active';
+  const isTrial = subscription?.status === 'trial';
+
+  if (!subscription || (!isActive && !isTrial)) {
     return res.status(403).json({
       error: 'subscription_required',
       message: 'Necesitás una suscripción activa para usar MechaIA.',
     });
   }
 
-  if (subscription.messages_limit !== null && subscription.messages_used >= subscription.messages_limit) {
+  // Trial sin diagnósticos restantes
+  if (isTrial && subscription.trial_diagnostics_remaining <= 0) {
+    return res.status(403).json({
+      error: 'trial_exhausted',
+      message: 'Usaste tus 5 diagnósticos gratuitos. ¡Suscribite para continuar!',
+    });
+  }
+
+  // Límite de mensajes plan base
+  if (isActive && subscription.messages_limit !== null && subscription.messages_used >= subscription.messages_limit) {
     return res.status(403).json({
       error: 'limit_reached',
       message: `Alcanzaste el límite de ${subscription.messages_limit} mensajes del plan Base. Actualizá a Turbo para mensajes ilimitados.`,
