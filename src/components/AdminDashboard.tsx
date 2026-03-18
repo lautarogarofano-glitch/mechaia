@@ -70,14 +70,21 @@ export function AdminDashboard({ user, onBack }: AdminDashboardProps) {
         const res = await fetch('/api/admin-stats', {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const data = await res.json();
+        let data: any;
+        try {
+          data = await res.json();
+        } catch {
+          const text = await res.text().catch(() => '(no body)');
+          setError(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+          return;
+        }
         if (!res.ok) {
-          setError(data.error || 'Error obteniendo estadísticas');
+          setError(data.error || `HTTP ${res.status}`);
         } else {
           setStats(data);
         }
-      } catch {
-        setError('Error de conexión');
+      } catch (e: any) {
+        setError(`Error de conexión: ${e?.message || 'desconocido'}`);
       } finally {
         setLoading(false);
       }

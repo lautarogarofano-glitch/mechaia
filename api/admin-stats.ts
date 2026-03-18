@@ -23,6 +23,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(403).json({ error: 'Acceso denegado' });
   }
 
+  if (!supabaseServiceKey) {
+    return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada en Vercel' });
+  }
+
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
   const isThisMonth = (dateStr: string) => {
