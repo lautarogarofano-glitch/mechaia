@@ -8,8 +8,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ error: 'No autorizado' });
 
   const token = authHeader.split(' ')[1];
-  const supabaseUrl = process.env.SUPABASE_URL!;
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY!;
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY!;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
   // Verificar usuario
@@ -18,7 +18,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (authError || !user) return res.status(401).json({ error: 'Token inválido' });
 
   // Verificar que es admin
-  if (user.email !== process.env.ADMIN_EMAIL) {
+  const adminEmail = process.env.ADMIN_EMAIL || 'lautarogarofano@gmail.com';
+  if (user.email !== adminEmail) {
     return res.status(403).json({ error: 'Acceso denegado' });
   }
 
