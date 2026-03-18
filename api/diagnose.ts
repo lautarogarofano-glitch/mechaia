@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
+import { searchKnowledgeBase, formatRagContext } from './_rag';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -102,6 +103,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Faltan datos requeridos' });
     }
 
+    // RAG: buscar documentación técnica relevante
+    const ragQuery = [
+      vehicle.marca, vehicle.modelo, vehicle.año, vehicle.motor,
+      vehicle.codigoObd, vehicle.falla,
+    ].filter(Boolean).join(' ');
+    const ragChunks = await searchKnowledgeBase(ragQuery, supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+    const ragContext = formatRagContext(ragChunks);
+
     const systemPrompt = `Eres MechaIA, un asistente experto en diagnóstico automotriz con más de 20 años de experiencia en talleres mecánicos de toda Latinoamérica.
 
 Tu misión es ayudar a mecánicos profesionales a diagnosticar fallas de forma precisa, paso a paso, usando razonamiento técnico profundo.
@@ -133,7 +142,7 @@ DATOS DEL VEHÍCULO:
 - Kilometraje: ${vehicle.kilometraje || 'No especificado'}
 - Falla reportada: ${vehicle.falla}
 
-Recordá: sos un asistente técnico de alto nivel. Tu objetivo es guiar al mecánico hacia el diagnóstico correcto con el menor costo y tiempo posible.`;
+Recordá: sos un asistente técnico de alto nivel. Tu objetivo es guiar al mecánico hacia el diagnóstico correcto con el menor costo y tiempo posible.${ragContext}`;
 
     // Anthropic requires conversation to start with a user message
     const allMessages = messages.map((m: { role: string; content: string }) => ({
