@@ -14,7 +14,7 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState<'form' | 'chat' | 'admin'>('form');
-  const isAdmin = user?.email === import.meta.env.VITE_ADMIN_EMAIL;
+  const isAdmin = user?.email === (import.meta.env.VITE_ADMIN_EMAIL || 'lautarogarofano@gmail.com');
   const [currentVehicle, setCurrentVehicle] = useState<VehicleData | null>(null);
   const [currentDiagnosticId, setCurrentDiagnosticId] = useState<string | undefined>(undefined);
   const [currentMessages, setCurrentMessages] = useState<Message[] | undefined>(undefined);
