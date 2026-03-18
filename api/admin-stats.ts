@@ -24,7 +24,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (!supabaseServiceKey) {
-    return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada en Vercel' });
+    const available = Object.keys(process.env).filter(k => k.includes('SUPA')).join(', ');
+    return res.status(500).json({ error: `SUPABASE_SERVICE_ROLE_KEY no configurada. Vars Supabase disponibles: ${available || 'ninguna'}` });
   }
 
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
