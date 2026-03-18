@@ -3,3 +3,18 @@ node_modules
 .env
 .env.local
 .env*.local
+
+# Build
+dist/
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
+
+# Imágenes y docs locales
+"ChatGPT Image*"
+mechani_ai/
+Doc mechaia/
+create-mechaia.sh
+
+# OS
+.DS_Store

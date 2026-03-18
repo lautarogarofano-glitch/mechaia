@@ -41,14 +41,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const token = authHeader.split(' ')[1];
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-  if (supabaseUrl && supabaseKey) {
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    const { error: authError } = await supabase.auth.getUser(token);
-    if (authError) {
-      return res.status(401).json({ error: 'Token inválido o expirado' });
-    }
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return res.status(500).json({ error: 'Configuración del servidor incompleta' });
   }
+
+  // Verificar autenticación
+  const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey);
+  const { data: { user }, error: authError } = await supabaseAnon.auth.getUser(token);
+  if (authError || !user) {
+    return res.status(401).json({ error: 'Token inválido o expirado' });
+  }
+
+  // Verificar suscripción y límite de mensajes
+  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+  const { data: subscription } = await supabaseAdmin
+    .from('subscriptions')
+    .select('status, plan, messages_used, messages_limit')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!subscription || subscription.status !== 'active') {
+    return res.status(403).json({
+      error: 'subscription_required',
+      message: 'Necesitás una suscripción activa para usar MechaIA.',
+    });
+  }
+
+  if (subscription.messages_limit !== null && subscription.messages_used >= subscription.messages_limit) {
+    return res.status(403).json({
+      error: 'limit_reached',
+      message: `Alcanzaste el límite de ${subscription.messages_limit} mensajes del plan Base. Actualizá a Turbo para mensajes ilimitados.`,
+    });
+  }
+
+  // Incrementar contador de mensajes
+  await supabaseAdmin
+    .from('subscriptions')
+    .update({ messages_used: (subscription.messages_used || 0) + 1, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id);
 
   try {
     const { messages, vehicle } = req.body;

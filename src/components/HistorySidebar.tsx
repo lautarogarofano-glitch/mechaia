@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import type { DiagnosisSession } from '../types/vehicle';
+import type { DiagnosisSession, Subscription } from '../types/vehicle';
 
 interface HistorySidebarProps {
   sessions: DiagnosisSession[];
   onSelectSession: (session: DiagnosisSession) => void;
   onNewSession: () => void;
   onDeleteSession: (id: string) => void;
+  subscription?: Subscription | null;
 }
 
-export function HistorySidebar({ sessions, onSelectSession, onNewSession, onDeleteSession }: HistorySidebarProps) {
+export function HistorySidebar({ sessions, onSelectSession, onNewSession, onDeleteSession, subscription }: HistorySidebarProps) {
   const [search, setSearch] = useState('');
 
   const formatDate = (date: Date) => {
@@ -129,7 +130,25 @@ export function HistorySidebar({ sessions, onSelectSession, onNewSession, onDele
         )}
       </div>
 
-      <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+      <div className="p-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
+        {subscription && subscription.messages_limit !== null && (
+          <div>
+            <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
+              <span>Mensajes usados</span>
+              <span>{subscription.messages_used}/{subscription.messages_limit}</span>
+            </div>
+            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
+              <div
+                className="bg-blue-600 h-1.5 rounded-full transition-all"
+                style={{ width: `${Math.min(100, (subscription.messages_used / subscription.messages_limit) * 100)}%` }}
+              />
+            </div>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Plan Base</p>
+          </div>
+        )}
+        {subscription && subscription.messages_limit === null && (
+          <p className="text-xs text-slate-400 dark:text-slate-500">Plan Turbo · Mensajes ilimitados</p>
+        )}
         <p className="text-xs text-center text-slate-400 dark:text-slate-500">MechaIA v1.0 · Argentina 🇦🇷</p>
       </div>
     </div>

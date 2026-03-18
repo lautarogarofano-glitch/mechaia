@@ -24,3 +24,10 @@ export interface DiagnosisSession {
   createdAt: Date;
   status: 'active' | 'completed';
 }
+
+export interface Subscription {
+  plan: 'base' | 'turbo';
+  status: 'active' | 'inactive' | 'cancelled' | 'past_due' | 'trialing';
+  messages_used: number;
+  messages_limit: number | null;
+}

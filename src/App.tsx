@@ -3,9 +3,10 @@ import { VehicleForm } from './components/VehicleForm';
 import { ChatInterface } from './components/ChatInterface';
 import { HistorySidebar } from './components/HistorySidebar';
 import { Auth } from './components/Auth';
+import { Pricing } from './components/Pricing';
 import { supabase } from './lib/supabase';
 import type { User } from '@supabase/supabase-js';
-import type { VehicleData, DiagnosisSession, Message } from './types/vehicle';
+import type { VehicleData, DiagnosisSession, Message, Subscription } from './types/vehicle';
 import './App.css';
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
   const [sessions, setSessions] = useState<DiagnosisSession[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [subscription, setSubscription] = useState<Subscription | null | 'loading'>('loading');
 
   // Verificar si hay usuario logueado al cargar
   useEffect(() => {
@@ -34,12 +36,32 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Cargar diagnósticos del usuario
+  // Cargar datos del usuario
   useEffect(() => {
     if (user) {
       loadUserDiagnostics();
+      loadSubscription();
+    } else {
+      setSubscription(null);
     }
   }, [user]);
+
+  // Manejar retorno de Stripe checkout
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('checkout') === 'success') {
+      window.history.replaceState({}, '', '/');
+      setTimeout(() => loadSubscription(), 2000); // esperar webhook
+    }
+  }, []);
+
+  const loadSubscription = async () => {
+    const { data } = await supabase
+      .from('subscriptions')
+      .select('plan, status, messages_used, messages_limit')
+      .single();
+    setSubscription(data as Subscription | null);
+  };
 
   const loadUserDiagnostics = async () => {
     setLoadError('');
@@ -188,6 +210,21 @@ function App() {
     return <Auth onAuthSuccess={() => {}} />;
   }
 
+  if (subscription === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
+        <div className="text-center">
+          <img src="/logo.png" alt="MechaIA" className="w-16 h-16 object-contain mx-auto mb-4 animate-pulse" />
+          <p className="text-slate-500 dark:text-slate-400">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!subscription || subscription.status !== 'active') {
+    return <Pricing />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       {/* Desktop Sidebar */}
@@ -197,6 +234,7 @@ function App() {
           onSelectSession={handleSelectSession}
           onNewSession={handleNewSession}
           onDeleteSession={handleDeleteSession}
+          subscription={subscription}
         />
       </div>
 
@@ -213,6 +251,7 @@ function App() {
               onSelectSession={handleSelectSession}
               onNewSession={handleNewSession}
               onDeleteSession={handleDeleteSession}
+              subscription={subscription}
             />
           </div>
         </div>
