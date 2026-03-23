@@ -44,10 +44,11 @@ export function Auth({ onAuthSuccess }: AuthProps) {
         setSuccessMessage('¡Cuenta creada! Revisá tu email para confirmar y luego iniciá sesión.');
         setMode('login');
       } else if (mode === 'reset') {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: 'https://www.mechaia.app/reset-password',
+        await fetch('/api/send-reset-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
         });
-        if (error) throw error;
         setSuccessMessage('Si tu email está registrado, recibirás un link para restablecer tu contraseña.');
         setMode('login');
       }
