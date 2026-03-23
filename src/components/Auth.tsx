@@ -44,11 +44,13 @@ export function Auth({ onAuthSuccess }: AuthProps) {
         setSuccessMessage('¡Cuenta creada! Revisá tu email para confirmar y luego iniciá sesión.');
         setMode('login');
       } else if (mode === 'reset') {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/reset-password`,
+        const res = await fetch('/api/send-reset-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
         });
-        if (error) throw error;
-        setSuccessMessage('Te enviamos un email para restablecer tu contraseña.');
+        if (!res.ok) throw new Error('Error enviando el email');
+        setSuccessMessage('Si tu email está registrado, recibirás un link para restablecer tu contraseña.');
         setMode('login');
       }
     } catch (err: unknown) {
