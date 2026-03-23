@@ -44,14 +44,12 @@ export function Auth({ onAuthSuccess }: AuthProps) {
         setSuccessMessage('¡Cuenta creada! Revisá tu email para confirmar y luego iniciá sesión.');
         setMode('login');
       } else if (mode === 'reset') {
-        const res = await fetch('/api/send-reset-email', {
+        await fetch('/api/send-reset-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
         });
-        const data = await res.json();
-        console.log('[reset debug]', JSON.stringify(data.debug));
-        setSuccessMessage('Si tu email está registrado, recibirás un link para restablecer tu contraseña. Debug: ' + JSON.stringify(data.debug));
+        setSuccessMessage('Si tu email está registrado vas a recibir un link para restablecer tu contraseña. Revisá tu bandeja de entrada y también la carpeta de spam.');
         setMode('login');
       }
     } catch (err: unknown) {

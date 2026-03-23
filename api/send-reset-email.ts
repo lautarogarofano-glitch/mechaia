@@ -79,7 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     console.log('[send-reset-email] debug:', JSON.stringify(debug));
-    return res.status(200).json({ ok: true, debug });
+    return res.status(200).json({ ok: true });
   } catch (err: unknown) {
     const e = err as { message?: string };
     console.error('[send-reset-email] Error:', e?.message);
