@@ -1,38 +1,44 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
-import { searchKnowledgeBase, formatRagContext } from './_rag';
+// RAG temporalmente desactivado para diagnosticar error de módulo
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// Rate limiting: 20 requests por IP por minuto, persistido en Supabase
+const RATE_LIMIT = 20;
+const RATE_WINDOW_SECONDS = 60;
 
-// Rate limiting: 30 requests por IP por minuto
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 30;
-const RATE_WINDOW = 60 * 1000;
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW });
+async function isRateLimited(ip: string, supabaseUrl: string, supabaseServiceKey: string): Promise<boolean> {
+  try {
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const windowStart = new Date(Date.now() - RATE_WINDOW_SECONDS * 1000).toISOString();
+    const { count } = await supabase
+      .from('rate_limits')
+      .select('*', { count: 'exact', head: true })
+      .eq('ip', ip)
+      .gte('created_at', windowStart);
+    if ((count ?? 0) >= RATE_LIMIT) return true;
+    await supabase.from('rate_limits').insert({ ip });
+    return false;
+  } catch {
+    // Si falla el rate limit check, dejamos pasar (fail open) para no bloquear usuarios legítimos
     return false;
   }
-  if (entry.count >= RATE_LIMIT) return true;
-  entry.count++;
-  return false;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Outer catch — cualquier excepción no manejada devuelve JSON (nunca texto plano)
+  return innerHandler(req, res).catch((err: unknown) => {
+    const e = err as { message?: string; name?: string };
+    console.error('[diagnose] UNHANDLED:', e?.name, e?.message);
+    if (!res.headersSent) {
+      res.status(500).json({ reply: 'Error interno del servidor. Por favor intentá de nuevo.' });
+    }
+  });
+}
+
+async function innerHandler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  // Rate limiting
-  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 'unknown';
-  if (isRateLimited(ip)) {
-    return res.status(429).json({ error: 'Demasiadas solicitudes. Esperá un minuto.' });
   }
 
   // Validación de autenticación
@@ -45,8 +51,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
     return res.status(500).json({ error: 'Configuración del servidor incompleta' });
+  }
+
+  // Rate limiting (persistido en Supabase para sobrevivir entre invocaciones serverless)
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 'unknown';
+  if (await isRateLimited(ip, supabaseUrl, supabaseServiceKey)) {
+    return res.status(429).json({ error: 'Demasiadas solicitudes. Esperá un minuto.' });
   }
 
   // Verificar autenticación
@@ -56,8 +68,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ error: 'Token inválido o expirado' });
   }
 
-  // Verificar suscripción y límite de mensajes
-  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+  // Verificar suscripción y límite de mensajes (service role key garantizado arriba)
+  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
   const { data: subscription } = await supabaseAdmin
     .from('subscriptions')
     .select('status, plan, messages_used, messages_limit, trial_diagnostics_remaining')
@@ -90,11 +102,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  // Incrementar contador de mensajes
-  await supabaseAdmin
+  // Incrementar contador de mensajes y decrementar trial si aplica
+  const updatePayload: Record<string, unknown> = {
+    messages_used: (subscription.messages_used || 0) + 1,
+    updated_at: new Date().toISOString(),
+  };
+  if (isTrial) {
+    updatePayload.trial_diagnostics_remaining = Math.max(0, (subscription.trial_diagnostics_remaining || 0) - 1);
+  }
+  const { error: updateError } = await supabaseAdmin
     .from('subscriptions')
-    .update({ messages_used: (subscription.messages_used || 0) + 1, updated_at: new Date().toISOString() })
+    .update(updatePayload)
     .eq('user_id', user.id);
+  if (updateError) {
+    console.error('[diagnose] Error actualizando subscription:', updateError.message);
+  }
 
   try {
     const { messages, vehicle } = req.body;
@@ -102,14 +124,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!messages || !vehicle) {
       return res.status(400).json({ error: 'Faltan datos requeridos' });
     }
+    if (!Array.isArray(messages) || messages.length > 50) {
+      return res.status(400).json({ error: 'Formato de mensajes inválido' });
+    }
+    for (const msg of messages) {
+      if (typeof msg?.content === 'string' && msg.content.length > 4000) {
+        return res.status(400).json({ error: 'Mensaje demasiado largo' });
+      }
+    }
 
-    // RAG: buscar documentación técnica relevante
-    const ragQuery = [
-      vehicle.marca, vehicle.modelo, vehicle.año, vehicle.motor,
-      vehicle.codigoObd, vehicle.falla,
-    ].filter(Boolean).join(' ');
-    const ragChunks = await searchKnowledgeBase(ragQuery, supabaseUrl, supabaseServiceKey || supabaseAnonKey);
-    const ragContext = formatRagContext(ragChunks);
+    const ragContext = '';
 
     const systemPrompt = `Eres MechaIA, un asistente experto en diagnóstico automotriz con más de 20 años de experiencia en talleres mecánicos de toda Latinoamérica.
 
@@ -156,9 +180,10 @@ Recordá: sos un asistente técnico de alto nivel. Tu objetivo es guiar al mecá
     while (lastIdx >= 0 && trimmedMessages[lastIdx].role === 'assistant') lastIdx--;
     const filteredMessages = trimmedMessages.slice(0, lastIdx + 1);
 
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 600,
       system: systemPrompt,
       messages: filteredMessages,
     });
@@ -167,11 +192,11 @@ Recordá: sos un asistente técnico de alto nivel. Tu objetivo es guiar al mecá
 
     res.status(200).json({ reply });
   } catch (error: unknown) {
-    const err = error as { message?: string; status?: number };
-    console.error('Error:', err?.message, err?.status);
+    const err = error as { message?: string; status?: number; name?: string };
+    console.error('[diagnose] Error en Anthropic:', err?.name, 'status:', err?.status, 'msg:', err?.message);
     res.status(500).json({
       error: 'Error procesando el diagnóstico',
-      reply: 'Disculpá, estoy teniendo problemas técnicos. Probá de nuevo en unos segundos.',
+      reply: 'Ocurrió un error al procesar el diagnóstico. Por favor intentá de nuevo.',
     });
   }
 }
