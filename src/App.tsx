@@ -5,6 +5,7 @@ import { HistorySidebar } from './components/HistorySidebar';
 import { Auth } from './components/Auth';
 import { Pricing } from './components/Pricing';
 import { AdminDashboard } from './components/AdminDashboard';
+import { ResetPassword } from './components/ResetPassword';
 import { supabase } from './lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { VehicleData, DiagnosisSession, Message, Subscription } from './types/vehicle';
@@ -13,6 +14,7 @@ import './App.css';
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRecoverySession, setIsRecoverySession] = useState(false);
   const [currentView, setCurrentView] = useState<'form' | 'chat' | 'admin'>('form');
   const isAdmin = !!import.meta.env.VITE_ADMIN_EMAIL && user?.email === import.meta.env.VITE_ADMIN_EMAIL;
   const [currentVehicle, setCurrentVehicle] = useState<VehicleData | null>(null);
@@ -31,8 +33,11 @@ function App() {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecoverySession(true);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -233,6 +238,10 @@ function App() {
         </div>
       </div>
     );
+  }
+
+  if (isRecoverySession && user) {
+    return <ResetPassword onDone={() => { setIsRecoverySession(false); }} />;
   }
 
   if (!user) {
