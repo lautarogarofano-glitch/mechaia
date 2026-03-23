@@ -14,7 +14,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const resendApiKey = process.env.RESEND_API_KEY!;
 
   if (!supabaseServiceKey || !resendApiKey) {
-    return res.status(500).json({ error: 'Configuración incompleta' });
+    console.error('[send-reset-email] Missing env vars:', { supabaseServiceKey: !!supabaseServiceKey, resendApiKey: !!resendApiKey });
+    return res.status(200).json({ ok: true });
   }
 
   try {

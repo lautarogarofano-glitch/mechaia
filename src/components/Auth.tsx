@@ -44,12 +44,11 @@ export function Auth({ onAuthSuccess }: AuthProps) {
         setSuccessMessage('¡Cuenta creada! Revisá tu email para confirmar y luego iniciá sesión.');
         setMode('login');
       } else if (mode === 'reset') {
-        const res = await fetch('/api/send-reset-email', {
+        await fetch('/api/send-reset-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
         });
-        if (!res.ok) throw new Error('Error enviando el email');
         setSuccessMessage('Si tu email está registrado, recibirás un link para restablecer tu contraseña.');
         setMode('login');
       }
