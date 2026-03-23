@@ -15,20 +15,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const resendApiKey = process.env.RESEND_API_KEY;
 
   try {
+    const debug: Record<string, unknown> = {
+      hasServiceKey: !!supabaseServiceKey,
+      hasResendKey: !!resendApiKey,
+      hasUrl: !!supabaseUrl,
+    };
+
     let resetLink: string | null = null;
 
-    // Intentar generar link directo si hay service role key
-    if (supabaseServiceKey && resendApiKey) {
+    if (supabaseServiceKey) {
       const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-      const { data } = await supabaseAdmin.auth.admin.generateLink({
+      const { data, error } = await supabaseAdmin.auth.admin.generateLink({
         type: 'recovery',
         email,
         options: { redirectTo: 'https://www.mechaia.app/reset-password' },
       });
+      debug.generateLinkError = error?.message ?? null;
+      debug.hasLink = !!data?.properties?.action_link;
       resetLink = data?.properties?.action_link ?? null;
     }
 
-    // Si tenemos link y API key de Resend, enviamos nosotros el email
     if (resetLink && resendApiKey) {
       const emailRes = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -45,8 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               <img src="https://www.mechaia.app/logo.png" alt="MechaIA" style="width: 64px; height: 64px; margin-bottom: 24px;" />
               <h2 style="color: #1e293b; margin-bottom: 8px;">Restablecé tu contraseña</h2>
               <p style="color: #475569; margin-bottom: 24px;">
-                Recibimos una solicitud para restablecer la contraseña de tu cuenta en MechaIA.
-                Clickeá el botón para continuar:
+                Recibimos una solicitud para restablecer la contraseña de tu cuenta en MechaIA. Clickeá el botón para continuar:
               </p>
               <a href="${resetLink}"
                  style="display: inline-block; background: linear-gradient(to right, #2563eb, #4f46e5); color: white;
@@ -54,25 +59,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 Restablecer contraseña
               </a>
               <p style="color: #94a3b8; font-size: 13px; margin-top: 24px;">
-                Si no solicitaste esto, podés ignorar este email.<br/>
-                El link expira en 1 hora.
+                Si no solicitaste esto podés ignorar este email. El link expira en 1 hora.
               </p>
             </div>
           `,
         }),
       });
-      if (!emailRes.ok) {
-        console.error('[send-reset-email] Resend error:', await emailRes.text());
-      }
+      const resendBody = await emailRes.text();
+      debug.resendStatus = emailRes.status;
+      debug.resendBody = resendBody;
+      console.log('[send-reset-email] Resend response:', emailRes.status, resendBody);
     } else {
-      // Fallback: dejar que Supabase envíe via SMTP configurado
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
-      await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: 'https://www.mechaia.app/reset-password',
       });
+      debug.smtpFallbackError = error?.message ?? null;
+      console.log('[send-reset-email] SMTP fallback:', debug);
     }
 
-    return res.status(200).json({ ok: true });
+    console.log('[send-reset-email] debug:', JSON.stringify(debug));
+    return res.status(200).json({ ok: true, debug });
   } catch (err: unknown) {
     const e = err as { message?: string };
     console.error('[send-reset-email] Error:', e?.message);
