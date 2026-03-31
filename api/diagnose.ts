@@ -86,14 +86,6 @@ async function innerHandler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  // Trial sin diagnósticos restantes
-  if (isTrial && subscription.trial_diagnostics_remaining <= 0) {
-    return res.status(403).json({
-      error: 'trial_exhausted',
-      message: 'Usaste tus 5 diagnósticos gratuitos. ¡Suscribite para continuar!',
-    });
-  }
-
   // Límite de mensajes plan base
   if (isActive && subscription.messages_limit !== null && subscription.messages_used >= subscription.messages_limit) {
     return res.status(403).json({
@@ -102,14 +94,11 @@ async function innerHandler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  // Incrementar contador de mensajes y decrementar trial si aplica
+  // Incrementar contador de mensajes (solo para analytics)
   const updatePayload: Record<string, unknown> = {
     messages_used: (subscription.messages_used || 0) + 1,
     updated_at: new Date().toISOString(),
   };
-  if (isTrial) {
-    updatePayload.trial_diagnostics_remaining = Math.max(0, (subscription.trial_diagnostics_remaining || 0) - 1);
-  }
   const { error: updateError } = await supabaseAdmin
     .from('subscriptions')
     .update(updatePayload)

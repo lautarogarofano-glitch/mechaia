@@ -201,6 +201,28 @@ Contame más sobre la falla: "${vehicle.falla}"
   const handleDownloadPDF = async (reportData: ReportData) => {
     setIsGeneratingPDF(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
+
+      // Verificar y consumir slot de trial (o validar suscripción activa)
+      const check = await fetch('/api/consume-report', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (!check.ok) {
+        const err = await check.json();
+        setShowReportModal(false);
+        const errorMsg: Message = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: err.message || 'No podés generar reportes con tu plan actual.',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, errorMsg]);
+        return;
+      }
+
       const qrDataUrl = await QRCode.toDataURL('https://mechaia.app', { width: 96, margin: 1 });
       const workshopName = userEmail ? userEmail.split('@')[0] : 'Taller Mecánico';
       const blob = await pdf(
