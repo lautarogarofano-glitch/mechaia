@@ -8,6 +8,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { ResetPassword } from './components/ResetPassword';
 import { WelcomeSetup } from './components/WelcomeSetup';
 import { Settings } from './components/Settings';
+import { Landing } from './components/Landing';
 import { supabase } from './lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { VehicleData, DiagnosisSession, Message, Subscription } from './types/vehicle';
@@ -19,6 +20,7 @@ function App() {
   const [isRecoverySession, setIsRecoverySession] = useState(false);
   const [currentView, setCurrentView] = useState<'form' | 'chat' | 'admin' | 'settings'>('form');
   const [showWelcome, setShowWelcome] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const isAdmin = !!import.meta.env.VITE_ADMIN_EMAIL && user?.email === import.meta.env.VITE_ADMIN_EMAIL;
   const [currentVehicle, setCurrentVehicle] = useState<VehicleData | null>(null);
   const [currentDiagnosticId, setCurrentDiagnosticId] = useState<string | undefined>(undefined);
@@ -258,7 +260,8 @@ function App() {
   }
 
   if (!user) {
-    return <Auth onAuthSuccess={() => {}} />;
+    if (showAuth) return <Auth onAuthSuccess={() => setShowAuth(false)} />;
+    return <Landing onStartAuth={() => setShowAuth(true)} />;
   }
 
   if (subscription === 'loading') {
