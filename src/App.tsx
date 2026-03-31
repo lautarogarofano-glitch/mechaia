@@ -334,7 +334,7 @@ function App() {
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm text-slate-500 dark:text-slate-400 hidden sm:inline">
-                {user.email}
+                {user.user_metadata?.workshop_name || user.email}
               </span>
               {isAdmin && (
                 <button
