@@ -10,9 +10,18 @@
 
 import fs from 'fs';
 import path from 'path';
+
+// Cargar .env.local manualmente
+const envFile = path.resolve('.env.local');
+if (fs.existsSync(envFile)) {
+  for (const line of fs.readFileSync(envFile, 'utf8').split('\n')) {
+    const [key, ...rest] = line.split('=');
+    if (key && rest.length) process.env[key.trim()] = rest.join('=').trim();
+  }
+}
+import { execSync } from 'child_process';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import pdfParse from 'pdf-parse';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const DOCS_DIR = path.resolve('./mechani_ai');
@@ -33,7 +42,7 @@ if (!supabaseUrl || !supabaseKey || !googleApiKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 const genAI = new GoogleGenerativeAI(googleApiKey);
-const embeddingModel = genAI.getGenerativeModel({ model: 'text-embedding-004' });
+const embeddingModel = genAI.getGenerativeModel({ model: 'gemini-embedding-001' });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -43,14 +52,15 @@ function chunkText(text: string): string[] {
   while (start < text.length) {
     const end = Math.min(start + CHUNK_SIZE, text.length);
     const chunk = text.slice(start, end).trim();
-    if (chunk.length > 50) chunks.push(chunk); // ignorar chunks muy cortos
+    if (chunk.length > 50) chunks.push(chunk);
+    if (end >= text.length) break;
     start = end - CHUNK_OVERLAP;
   }
   return chunks;
 }
 
 async function getEmbedding(text: string): Promise<number[]> {
-  const result = await embeddingModel.embedContent(text);
+  const result = await embeddingModel.embedContent({ content: { parts: [{ text }] }, outputDimensionality: 768 } as any);
   return result.embedding.values;
 }
 
@@ -131,9 +141,7 @@ async function main() {
     console.log(`\n📄 [${processedFiles + 1}/${allPdfs.length}] ${relative}`);
 
     try {
-      const buffer = fs.readFileSync(pdfPath);
-      const parsed = await pdfParse(buffer);
-      const text = parsed.text?.trim();
+      const text = execSync(`pdftotext "${pdfPath}" -`, { maxBuffer: 10 * 1024 * 1024, timeout: 15000 }).toString().trim();
 
       if (!text || text.length < 100) {
         console.log(`  ⚠️  Texto insuficiente (${text?.length || 0} chars) — saltando`);
@@ -147,27 +155,27 @@ async function main() {
       console.log(`  🔪 Chunks: ${chunks.length}`);
 
       const meta = extractMetaFromPath(pdfPath);
-      const rows: Array<{ content: string; metadata: Record<string, string>; embedding: number[] }> = [];
+      let savedChunks = 0;
 
+      // Generar embedding e insertar de inmediato (sin acumular en RAM)
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
         await sleep(EMBED_DELAY_MS);
         const embedding = await getEmbedding(chunk);
-        rows.push({ content: chunk, metadata: { ...meta, chunk: String(i) }, embedding });
-        process.stdout.write(`\r  🧠 Embedding ${i + 1}/${chunks.length}`);
+        const { error } = await supabase.from('knowledge_base').insert({
+          content: chunk,
+          metadata: { ...meta, chunk: String(i) },
+          embedding,
+        });
+        if (error) throw error;
+        savedChunks++;
+        process.stdout.write(`\r  🧠 ${savedChunks}/${chunks.length} chunks`);
       }
       console.log();
 
-      // Insertar en batches
-      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-        const batch = rows.slice(i, i + BATCH_SIZE);
-        const { error } = await supabase.from('knowledge_base').insert(batch);
-        if (error) throw error;
-      }
-
-      totalChunks += rows.length;
+      totalChunks += savedChunks;
       processedFiles++;
-      console.log(`  ✅ Guardados ${rows.length} chunks`);
+      console.log(`  ✅ Guardados ${savedChunks} chunks`);
 
     } catch (err) {
       console.error(`  ❌ Error:`, (err as Error).message);

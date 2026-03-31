@@ -366,6 +366,7 @@ function App() {
               initialMessages={currentMessages}
               isCompleted={currentIsCompleted}
               onComplete={handleCompleteSession}
+              userEmail={user?.email}
             />
           ) : null}
         </main>

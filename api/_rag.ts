@@ -6,9 +6,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '');
-const embeddingModel = genAI.getGenerativeModel({ model: 'text-embedding-004' });
-
 export interface RagChunk {
   content: string;
   metadata: Record<string, string>;
@@ -25,7 +22,9 @@ export async function searchKnowledgeBase(
   if (!process.env.GOOGLE_AI_API_KEY) return [];
 
   try {
-    const result = await embeddingModel.embedContent(query);
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
+    const embeddingModel = genAI.getGenerativeModel({ model: 'gemini-embedding-001' });
+    const result = await embeddingModel.embedContent({ content: { parts: [{ text: query }] }, outputDimensionality: 768 } as any);
     const embedding = result.embedding.values;
 
     const supabase = createClient(supabaseUrl, supabaseKey);

@@ -1,0 +1,23 @@
+# Entorno y claves — NUNCA subir al repositorio
+.env.local
+.env*.local
+
+# Datos cacheados localmente
+data/
+dashboard/data/
+
+# Dependencias
+node_modules/
+dashboard/node_modules/
+
+# Build
+.next/
+dashboard/.next/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

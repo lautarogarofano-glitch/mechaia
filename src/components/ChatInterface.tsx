@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { pdf } from '@react-pdf/renderer';
+import QRCode from 'qrcode';
 import { supabase } from '../lib/supabase';
+import { DiagnosticPDF } from './DiagnosticPDF';
 import type { VehicleData, Message } from '../types/vehicle';
 
 interface ChatInterfaceProps {
@@ -10,6 +13,7 @@ interface ChatInterfaceProps {
   initialMessages?: Message[];
   isCompleted?: boolean;
   onComplete?: () => void;
+  userEmail?: string;
 }
 
 // Función para convertir timestamps de string a Date
@@ -21,7 +25,7 @@ const parseMessages = (messages: Message[] | undefined): Message[] => {
   }));
 };
 
-export function ChatInterface({ vehicle, onBack, diagnosticId, initialMessages, isCompleted = false, onComplete }: ChatInterfaceProps) {
+export function ChatInterface({ vehicle, onBack, diagnosticId, initialMessages, isCompleted = false, onComplete, userEmail }: ChatInterfaceProps) {
   const defaultMessage: Message = {
     id: '1',
     role: 'assistant',
@@ -43,6 +47,7 @@ Contame más sobre la falla: "${vehicle.falla}"
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [streamingId, setStreamingId] = useState<string | null>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [hasSavedInitial, setHasSavedInitial] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -190,6 +195,27 @@ Contame más sobre la falla: "${vehicle.falla}"
     }
   };
 
+  const handleDownloadPDF = async () => {
+    setIsGeneratingPDF(true);
+    try {
+      const qrDataUrl = await QRCode.toDataURL('https://mechaia.app', { width: 96, margin: 1 });
+      const workshopName = userEmail ? userEmail.split('@')[0] : 'Taller Mecánico';
+      const blob = await pdf(
+        <DiagnosticPDF vehicle={vehicle} messages={messages} workshopName={workshopName} qrDataUrl={qrDataUrl} />
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `diagnostico-${vehicle.patente}-${Date.now()}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error generando PDF:', err);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -215,6 +241,13 @@ Contame más sobre la falla: "${vehicle.falla}"
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleDownloadPDF}
+            disabled={isGeneratingPDF || messages.length <= 1}
+            className="px-3 py-1.5 text-xs font-medium bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white rounded-lg transition-colors flex items-center gap-1.5"
+          >
+            {isGeneratingPDF ? '⏳ Generando...' : '⬇ PDF'}
+          </button>
           {isCompleted ? (
             <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium rounded-full">
               ✓ Completado
