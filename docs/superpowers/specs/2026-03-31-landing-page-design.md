@@ -81,8 +81,9 @@ El cobro via Lemon Squeezy no está habilitado aún — los botones de planes ll
 - Dos cards lado a lado (igual que `Pricing.tsx` actual pero adaptado al estilo landing):
   - **Base**: $11.45/mes — 150 mensajes/mes, diagnóstico guiado, historial, soporte email
   - **Turbo** (recomendado, badge): $19.20/mes — mensajes ilimitados, PDF, historial, soporte prioritario, acceso a novedades primero
-- Botones dicen `"Empezar con Base"` / `"Empezar con Turbo"` — abren Auth (registro), **no** checkout (Lemon Squeezy pendiente)
-- Nota al pie: `"Empezá con 5 diagnósticos gratis. Sin tarjeta."`
+- Botones dicen `"Empezar con Base"` / `"Empezar con Turbo"` — guardan el plan seleccionado en `localStorage` (`selectedPlan: 'base' | 'turbo'`) y abren Auth (registro). Una vez autenticado, si hay un `selectedPlan` guardado, se redirige directo al checkout de Lemon Squeezy. Si Lemon Squeezy no está habilitado aún, el flujo cae al trial normal.
+- El hero también tiene un botón `"Empezar gratis"` que abre Auth sin `selectedPlan` → trial normal.
+- Nota al pie: `"También podés empezar con 5 diagnósticos gratis. Sin tarjeta."`
 
 ### 7. CTA Final + Footer
 
