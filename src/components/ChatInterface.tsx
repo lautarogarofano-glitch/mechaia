@@ -42,6 +42,7 @@ Contame más sobre la falla: "${vehicle.falla}"
   );
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [streamingId, setStreamingId] = useState<string | null>(null);
   const [hasSavedInitial, setHasSavedInitial] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -122,31 +123,70 @@ Contame más sobre la falla: "${vehicle.falla}"
         }),
       });
 
-      const data = await response.json();
+      // Errores HTTP (auth, suscripción, rate limit) — siempre JSON
+      if (!response.ok) {
+        let data: { error?: string; message?: string } = {};
+        try { data = await response.json(); } catch { /* no-op */ }
+        if (data.error === 'trial_exhausted' || data.error === 'subscription_required' || data.error === 'limit_reached') {
+          throw new Error(data.message || data.error);
+        }
+        throw new Error(data.error || `Error ${response.status}`);
+      }
 
-      const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: data.reply || 'Disculpá, no pude procesar tu consulta. Probá de nuevo.',
-        timestamp: new Date(),
-      };
+      // Respuesta exitosa — streaming SSE
+      const newId = (Date.now() + 1).toString();
+      setStreamingId(newId);
+      setIsTyping(false);
+      setMessages([...updatedMessages, { id: newId, role: 'assistant', content: '', timestamp: new Date() }]);
 
-      const finalMessages = [...updatedMessages, aiResponse];
-      setMessages(finalMessages);
-      await saveConversation(finalMessages);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = '';
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (raw === '[DONE]') break;
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed.text) {
+              fullContent += parsed.text;
+              setMessages(prev => prev.map(m => m.id === newId ? { ...m, content: fullContent } : m));
+            }
+            if (parsed.error) {
+              fullContent = parsed.error;
+              setMessages(prev => prev.map(m => m.id === newId ? { ...m, content: fullContent } : m));
+            }
+          } catch { /* chunk incompleto, continuar */ }
+        }
+      }
+
+      // Guardar solo si hay contenido real
+      if (fullContent && !fullContent.startsWith('Error')) {
+        const finalMessages = updatedMessages.concat({ id: newId, role: 'assistant', content: fullContent, timestamp: new Date() });
+        await saveConversation(finalMessages);
+      }
     } catch (error) {
-      console.error('Error:', error);
-      const errorResponse: Message = {
+      console.error('Error en chat:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
+      setMessages([...updatedMessages, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Disculpá, estoy teniendo problemas técnicos. Probá de nuevo en unos segundos.',
+        content: `Error: ${errorMsg}`,
         timestamp: new Date(),
-      };
-      const finalMessages = [...updatedMessages, errorResponse];
-      setMessages(finalMessages);
-      await saveConversation(finalMessages);
+      }]);
     } finally {
       setIsTyping(false);
+      setStreamingId(null);
     }
   };
 
@@ -212,7 +252,12 @@ Contame más sobre la falla: "${vehicle.falla}"
             >
               <div className="text-sm leading-relaxed">
                 {message.role === 'assistant' ? (
-                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                  <>
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                    {streamingId === message.id && (
+                      <span className="inline-block w-0.5 h-4 bg-slate-400 animate-pulse ml-0.5 align-middle" />
+                    )}
+                  </>
                 ) : (
                   message.content
                 )}

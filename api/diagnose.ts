@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
-// RAG temporalmente desactivado para diagnosticar error de módulo
+import { searchKnowledgeBase, formatRagContext } from './_rag';
 
 // Rate limiting: 20 requests por IP por minuto, persistido en Supabase
 const RATE_LIMIT = 20;
@@ -133,7 +133,13 @@ async function innerHandler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    const ragContext = '';
+    // Búsqueda semántica en la base de conocimiento técnico
+    const ragChunks = await searchKnowledgeBase(
+      `${vehicle.marca} ${vehicle.modelo} ${vehicle.falla} ${vehicle.codigoObd || ''}`,
+      supabaseUrl,
+      supabaseServiceKey,
+    );
+    const ragContext = formatRagContext(ragChunks);
 
     const systemPrompt = `Eres MechaIA, un asistente experto en diagnóstico automotriz con más de 20 años de experiencia en talleres mecánicos de toda Latinoamérica.
 
@@ -180,23 +186,40 @@ Recordá: sos un asistente técnico de alto nivel. Tu objetivo es guiar al mecá
     while (lastIdx >= 0 && trimmedMessages[lastIdx].role === 'assistant') lastIdx--;
     const filteredMessages = trimmedMessages.slice(0, lastIdx + 1);
 
+    // Iniciar streaming SSE
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 600,
-      system: systemPrompt,
-      messages: filteredMessages,
-    });
 
-    const reply = response.content[0].type === 'text' ? response.content[0].text : '';
+    try {
+      const stream = anthropic.messages.stream({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1500,
+        system: systemPrompt,
+        messages: filteredMessages,
+      });
 
-    res.status(200).json({ reply });
+      for await (const event of stream) {
+        if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+          res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
+        }
+      }
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      console.error('[diagnose] Error en Anthropic stream:', err?.message);
+      res.write(`data: ${JSON.stringify({ error: 'Error procesando el diagnóstico. Intentá de nuevo.' })}\n\n`);
+    }
+
+    res.write('data: [DONE]\n\n');
+    res.end();
   } catch (error: unknown) {
     const err = error as { message?: string; status?: number; name?: string };
-    console.error('[diagnose] Error en Anthropic:', err?.name, 'status:', err?.status, 'msg:', err?.message);
-    res.status(500).json({
-      error: 'Error procesando el diagnóstico',
-      reply: 'Ocurrió un error al procesar el diagnóstico. Por favor intentá de nuevo.',
-    });
+    console.error('[diagnose] Error general:', err?.name, 'status:', err?.status, 'msg:', err?.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Error procesando el diagnóstico' });
+    }
   }
 }
