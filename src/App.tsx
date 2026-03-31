@@ -6,6 +6,8 @@ import { Auth } from './components/Auth';
 import { Pricing } from './components/Pricing';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ResetPassword } from './components/ResetPassword';
+import { WelcomeSetup } from './components/WelcomeSetup';
+import { Settings } from './components/Settings';
 import { supabase } from './lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { VehicleData, DiagnosisSession, Message, Subscription } from './types/vehicle';
@@ -15,7 +17,8 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRecoverySession, setIsRecoverySession] = useState(false);
-  const [currentView, setCurrentView] = useState<'form' | 'chat' | 'admin'>('form');
+  const [currentView, setCurrentView] = useState<'form' | 'chat' | 'admin' | 'settings'>('form');
+  const [showWelcome, setShowWelcome] = useState(false);
   const isAdmin = !!import.meta.env.VITE_ADMIN_EMAIL && user?.email === import.meta.env.VITE_ADMIN_EMAIL;
   const [currentVehicle, setCurrentVehicle] = useState<VehicleData | null>(null);
   const [currentDiagnosticId, setCurrentDiagnosticId] = useState<string | undefined>(undefined);
@@ -30,6 +33,9 @@ function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      if (session?.user && !session.user.user_metadata?.workshop_name) {
+        setShowWelcome(true);
+      }
       setLoading(false);
     });
 
@@ -37,6 +43,9 @@ function App() {
       setUser(session?.user ?? null);
       if (event === 'PASSWORD_RECOVERY') {
         setIsRecoverySession(true);
+      }
+      if (event === 'SIGNED_IN' && session?.user && !session.user.user_metadata?.workshop_name) {
+        setShowWelcome(true);
       }
     });
 
@@ -216,6 +225,10 @@ function App() {
     }
   };
 
+  const handleSettingsView = () => {
+    setCurrentView('settings');
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -269,6 +282,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+      {showWelcome && <WelcomeSetup onComplete={() => setShowWelcome(false)} />}
       {/* Desktop Sidebar */}
       <div className="hidden lg:block fixed left-0 top-0 h-full w-72 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 z-20">
         <HistorySidebar
@@ -277,6 +291,7 @@ function App() {
           onNewSession={handleNewSession}
           onDeleteSession={handleDeleteSession}
           subscription={subscription}
+          onSettings={handleSettingsView}
         />
       </div>
 
@@ -294,6 +309,7 @@ function App() {
               onNewSession={handleNewSession}
               onDeleteSession={handleDeleteSession}
               subscription={subscription}
+              onSettings={handleSettingsView}
             />
           </div>
         </div>
@@ -352,7 +368,13 @@ function App() {
               <button onClick={loadUserDiagnostics} className="ml-4 underline text-xs">Reintentar</button>
             </div>
           )}
-          {currentView === 'admin' && user ? (
+          {currentView === 'settings' && user ? (
+            <Settings
+              user={user}
+              subscription={typeof subscription !== 'string' ? subscription : null}
+              onBack={() => setCurrentView('form')}
+            />
+          ) : currentView === 'admin' && user ? (
             <AdminDashboard user={user} onBack={() => setCurrentView('form')} />
           ) : currentView === 'form' ? (
             <div className="pt-8">
@@ -367,6 +389,7 @@ function App() {
               isCompleted={currentIsCompleted}
               onComplete={handleCompleteSession}
               userEmail={user?.email}
+              workshopName={user?.user_metadata?.workshop_name}
             />
           ) : null}
         </main>

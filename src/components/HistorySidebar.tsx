@@ -7,9 +7,10 @@ interface HistorySidebarProps {
   onNewSession: () => void;
   onDeleteSession: (id: string) => void;
   subscription?: Subscription | null;
+  onSettings?: () => void;
 }
 
-export function HistorySidebar({ sessions, onSelectSession, onNewSession, onDeleteSession, subscription }: HistorySidebarProps) {
+export function HistorySidebar({ sessions, onSelectSession, onNewSession, onDeleteSession, subscription, onSettings }: HistorySidebarProps) {
   const [search, setSearch] = useState('');
 
   const formatDate = (date: Date) => {
@@ -165,6 +166,14 @@ export function HistorySidebar({ sessions, onSelectSession, onNewSession, onDele
         )}
         {subscription?.status === 'active' && subscription.messages_limit === null && (
           <p className="text-xs text-slate-400 dark:text-slate-500">Plan Turbo · Mensajes ilimitados</p>
+        )}
+        {onSettings && (
+          <button
+            onClick={onSettings}
+            className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+          >
+            <span>&#9881;</span> Configuración
+          </button>
         )}
         <p className="text-xs text-center text-slate-400 dark:text-slate-500">MechaIA v1.0 · Argentina 🇦🇷</p>
       </div>

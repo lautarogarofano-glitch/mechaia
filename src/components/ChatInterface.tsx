@@ -16,6 +16,7 @@ interface ChatInterfaceProps {
   isCompleted?: boolean;
   onComplete?: () => void;
   userEmail?: string;
+  workshopName?: string;
 }
 
 // Función para convertir timestamps de string a Date
@@ -27,7 +28,7 @@ const parseMessages = (messages: Message[] | undefined): Message[] => {
   }));
 };
 
-export function ChatInterface({ vehicle, onBack, diagnosticId, initialMessages, isCompleted = false, onComplete, userEmail }: ChatInterfaceProps) {
+export function ChatInterface({ vehicle, onBack, diagnosticId, initialMessages, isCompleted = false, onComplete, userEmail, workshopName }: ChatInterfaceProps) {
   const defaultMessage: Message = {
     id: '1',
     role: 'assistant',
@@ -224,9 +225,9 @@ Contame más sobre la falla: "${vehicle.falla}"
       }
 
       const qrDataUrl = await QRCode.toDataURL('https://mechaia.app', { width: 96, margin: 1 });
-      const workshopName = userEmail ? userEmail.split('@')[0] : 'Taller Mecánico';
+      const resolvedWorkshopName = workshopName || (userEmail ? userEmail.split('@')[0] : 'Taller Mecánico');
       const blob = await pdf(
-        <DiagnosticPDF vehicle={vehicle} reportData={reportData} workshopName={workshopName} qrDataUrl={qrDataUrl} />
+        <DiagnosticPDF vehicle={vehicle} reportData={reportData} workshopName={resolvedWorkshopName} qrDataUrl={qrDataUrl} />
       ).toBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
