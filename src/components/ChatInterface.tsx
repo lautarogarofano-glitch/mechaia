@@ -4,6 +4,8 @@ import { pdf } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
 import { supabase } from '../lib/supabase';
 import { DiagnosticPDF } from './DiagnosticPDF';
+import { ReportModal } from './ReportModal';
+import type { ReportData } from './ReportModal';
 import type { VehicleData, Message } from '../types/vehicle';
 
 interface ChatInterfaceProps {
@@ -48,6 +50,7 @@ Contame más sobre la falla: "${vehicle.falla}"
   const [isTyping, setIsTyping] = useState(false);
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [hasSavedInitial, setHasSavedInitial] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -195,20 +198,21 @@ Contame más sobre la falla: "${vehicle.falla}"
     }
   };
 
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF = async (reportData: ReportData) => {
     setIsGeneratingPDF(true);
     try {
       const qrDataUrl = await QRCode.toDataURL('https://mechaia.app', { width: 96, margin: 1 });
       const workshopName = userEmail ? userEmail.split('@')[0] : 'Taller Mecánico';
       const blob = await pdf(
-        <DiagnosticPDF vehicle={vehicle} messages={messages} workshopName={workshopName} qrDataUrl={qrDataUrl} />
+        <DiagnosticPDF vehicle={vehicle} reportData={reportData} workshopName={workshopName} qrDataUrl={qrDataUrl} />
       ).toBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `diagnostico-${vehicle.patente}-${Date.now()}.pdf`;
+      a.download = `informe-${vehicle.patente.toUpperCase()}-${new Date().toISOString().slice(0,10)}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
+      setShowReportModal(false);
     } catch (err) {
       console.error('Error generando PDF:', err);
     } finally {
@@ -225,6 +229,13 @@ Contame más sobre la falla: "${vehicle.falla}"
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-900">
+      {showReportModal && (
+        <ReportModal
+          onConfirm={handleDownloadPDF}
+          onClose={() => setShowReportModal(false)}
+          isGenerating={isGeneratingPDF}
+        />
+      )}
       <header className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <button onClick={onBack} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">←</button>
@@ -242,11 +253,11 @@ Contame más sobre la falla: "${vehicle.falla}"
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={handleDownloadPDF}
-            disabled={isGeneratingPDF || messages.length <= 1}
-            className="px-3 py-1.5 text-xs font-medium bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white rounded-lg transition-colors flex items-center gap-1.5"
+            onClick={() => setShowReportModal(true)}
+            disabled={messages.length <= 1}
+            className="px-3 py-1.5 text-xs font-medium bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white rounded-lg transition-colors"
           >
-            {isGeneratingPDF ? '⏳ Generando...' : '⬇ PDF'}
+            Reporte final
           </button>
           {isCompleted ? (
             <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium rounded-full">

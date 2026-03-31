@@ -1,170 +1,210 @@
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
-import type { VehicleData, Message } from '../types/vehicle';
+import type { VehicleData } from '../types/vehicle';
+import type { ReportData } from './ReportModal';
 
-const blue = '#3B5BDB';
-const lightBlue = '#EEF2FF';
-const dark = '#1E293B';
+const dark = '#0F172A';
 const mid = '#475569';
 const light = '#94A3B8';
 const border = '#E2E8F0';
+const bg = '#F8FAFC';
 
 const styles = StyleSheet.create({
-  page: { fontFamily: 'Helvetica', backgroundColor: '#FFFFFF', paddingBottom: 80 },
+  page: {
+    fontFamily: 'Helvetica',
+    backgroundColor: '#FFFFFF',
+    paddingTop: 48,
+    paddingHorizontal: 48,
+    paddingBottom: 72,
+  },
 
   // Header
-  header: { backgroundColor: blue, paddingHorizontal: 32, paddingVertical: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { color: '#FFFFFF', fontSize: 18, fontFamily: 'Helvetica-Bold', letterSpacing: 0.5 },
-  headerSub: { color: '#C7D2FE', fontSize: 9, marginTop: 2 },
-  headerDate: { color: '#C7D2FE', fontSize: 8, textAlign: 'right' },
+  header: { marginBottom: 28 },
+  workshopName: { fontSize: 22, fontFamily: 'Helvetica-Bold', color: dark, marginBottom: 4 },
+  headerMeta: { fontSize: 9, color: light },
 
-  // Workshop
-  workshopBand: { backgroundColor: lightBlue, paddingHorizontal: 32, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: border },
-  workshopName: { fontSize: 11, fontFamily: 'Helvetica-Bold', color: blue },
-  workshopLabel: { fontSize: 8, color: light, marginBottom: 2 },
+  dividerThick: { height: 2, backgroundColor: dark, marginBottom: 20 },
+  dividerThin: { height: 1, backgroundColor: border, marginBottom: 14 },
 
-  // Body
-  body: { paddingHorizontal: 32, paddingTop: 24 },
+  // Título del documento
+  docTitle: { fontSize: 14, fontFamily: 'Helvetica-Bold', color: dark, marginBottom: 4 },
+  docSubtitle: { fontSize: 9, color: mid, marginBottom: 20 },
 
-  sectionTitle: { fontSize: 9, fontFamily: 'Helvetica-Bold', color: blue, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 20 },
-  divider: { height: 1, backgroundColor: border, marginBottom: 12 },
+  // Sección
+  sectionTitle: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    color: mid,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    marginBottom: 10,
+    marginTop: 18,
+  },
 
-  // Vehicle info grid
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  gridItem: { width: '30%', backgroundColor: '#F8FAFC', borderRadius: 4, padding: 8, borderWidth: 1, borderColor: border },
+  // Grid vehículo
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  gridItem: { width: '33.33%', marginBottom: 10 },
   gridLabel: { fontSize: 7, color: light, marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.5 },
   gridValue: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: dark },
 
-  // Falla box
-  fallaBox: { backgroundColor: '#FFF7ED', borderLeftWidth: 3, borderLeftColor: '#F97316', padding: 12, borderRadius: 4 },
-  fallaLabel: { fontSize: 7, color: '#9A3412', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
-  fallaText: { fontSize: 10, color: '#7C2D12', fontFamily: 'Helvetica-Bold' },
+  // Falla
+  fallaBox: {
+    backgroundColor: bg,
+    borderRadius: 4,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: border,
+    marginBottom: 4,
+  },
+  fallaText: { fontSize: 10, color: dark, lineHeight: 1.6 },
 
-  // Conversation
-  msgAI: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: border, borderRadius: 6, padding: 10, marginBottom: 8 },
-  msgUser: { backgroundColor: lightBlue, borderRadius: 6, padding: 10, marginBottom: 8, marginLeft: 20 },
-  msgRole: { fontSize: 7, fontFamily: 'Helvetica-Bold', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
-  msgRoleAI: { color: blue },
-  msgRoleUser: { color: mid },
-  msgText: { fontSize: 9, color: dark, lineHeight: 1.5 },
+  // Diagnóstico / Trabajos / Observaciones
+  contentBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 4,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: border,
+    marginBottom: 4,
+  },
+  contentText: { fontSize: 10, color: dark, lineHeight: 1.7 },
 
   // Footer
-  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopWidth: 1, borderTopColor: border, paddingHorizontal: 32, paddingVertical: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF' },
-  footerText: { fontSize: 7, color: light },
-  footerBrand: { fontSize: 8, fontFamily: 'Helvetica-Bold', color: blue },
-  qrImage: { width: 48, height: 48 },
+  footer: {
+    position: 'absolute',
+    bottom: 32,
+    left: 48,
+    right: 48,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  footerLeft: { flex: 1 },
+  footerLine: { height: 1, backgroundColor: border, marginBottom: 10 },
+  footerText: { fontSize: 7, color: light, lineHeight: 1.6 },
+  footerRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  qrImage: { width: 44, height: 44 },
+  mechaiaLabel: { fontSize: 7, color: light, textAlign: 'right' },
 });
 
 interface Props {
   vehicle: VehicleData;
-  messages: Message[];
+  reportData: ReportData;
   workshopName: string;
   qrDataUrl: string;
 }
 
-export function DiagnosticPDF({ vehicle, messages, workshopName, qrDataUrl }: Props) {
+export function DiagnosticPDF({ vehicle, reportData, workshopName, qrDataUrl }: Props) {
   const fecha = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
-  const hora = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-
-  // Solo mensajes con contenido real (excluir errores)
-  const filteredMessages = messages.filter(m => m.content && !m.content.startsWith('Error:'));
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
 
-        {/* Header */}
+        {/* Encabezado del taller */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.headerTitle}>MechaIA</Text>
-            <Text style={styles.headerSub}>Informe de Diagnóstico Automotriz</Text>
-          </View>
-          <View>
-            <Text style={styles.headerDate}>{fecha}</Text>
-            <Text style={styles.headerDate}>{hora} hs</Text>
-          </View>
+          <Text style={styles.workshopName}>{workshopName}</Text>
+          <Text style={styles.headerMeta}>{fecha}</Text>
         </View>
 
-        {/* Workshop band */}
-        <View style={styles.workshopBand}>
-          <Text style={styles.workshopLabel}>Taller</Text>
-          <Text style={styles.workshopName}>{workshopName || 'Sin nombre de taller'}</Text>
+        <View style={styles.dividerThick} />
+
+        {/* Título del documento */}
+        <Text style={styles.docTitle}>Informe de Diagnóstico Vehicular</Text>
+        <Text style={styles.docSubtitle}>
+          {vehicle.marca} {vehicle.modelo} {vehicle.año} · Patente {vehicle.patente.toUpperCase()}
+        </Text>
+
+        <View style={styles.dividerThin} />
+
+        {/* Datos del vehículo */}
+        <Text style={styles.sectionTitle}>Datos del vehículo</Text>
+        <View style={styles.grid}>
+          <View style={styles.gridItem}>
+            <Text style={styles.gridLabel}>Patente</Text>
+            <Text style={styles.gridValue}>{vehicle.patente.toUpperCase()}</Text>
+          </View>
+          <View style={styles.gridItem}>
+            <Text style={styles.gridLabel}>Marca</Text>
+            <Text style={styles.gridValue}>{vehicle.marca}</Text>
+          </View>
+          <View style={styles.gridItem}>
+            <Text style={styles.gridLabel}>Modelo</Text>
+            <Text style={styles.gridValue}>{vehicle.modelo}</Text>
+          </View>
+          <View style={styles.gridItem}>
+            <Text style={styles.gridLabel}>Año</Text>
+            <Text style={styles.gridValue}>{vehicle.año}</Text>
+          </View>
+          <View style={styles.gridItem}>
+            <Text style={styles.gridLabel}>Motor</Text>
+            <Text style={styles.gridValue}>{vehicle.motor}</Text>
+          </View>
+          {vehicle.ecu ? (
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>ECU</Text>
+              <Text style={styles.gridValue}>{vehicle.ecu}</Text>
+            </View>
+          ) : null}
+          {vehicle.kilometraje ? (
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>Kilometraje</Text>
+              <Text style={styles.gridValue}>{Number(vehicle.kilometraje).toLocaleString('es-AR')} km</Text>
+            </View>
+          ) : null}
+          {vehicle.codigoObd ? (
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>Código OBD2</Text>
+              <Text style={styles.gridValue}>{vehicle.codigoObd}</Text>
+            </View>
+          ) : null}
         </View>
 
-        <View style={styles.body}>
-
-          {/* Datos del vehículo */}
-          <Text style={styles.sectionTitle}>Datos del vehículo</Text>
-          <View style={styles.divider} />
-          <View style={styles.grid}>
-            <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Patente</Text>
-              <Text style={styles.gridValue}>{vehicle.patente.toUpperCase()}</Text>
-            </View>
-            <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Marca</Text>
-              <Text style={styles.gridValue}>{vehicle.marca}</Text>
-            </View>
-            <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Modelo</Text>
-              <Text style={styles.gridValue}>{vehicle.modelo}</Text>
-            </View>
-            <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Año</Text>
-              <Text style={styles.gridValue}>{vehicle.año}</Text>
-            </View>
-            <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Motor</Text>
-              <Text style={styles.gridValue}>{vehicle.motor}</Text>
-            </View>
-            {vehicle.ecu ? (
-              <View style={styles.gridItem}>
-                <Text style={styles.gridLabel}>ECU</Text>
-                <Text style={styles.gridValue}>{vehicle.ecu}</Text>
-              </View>
-            ) : null}
-            {vehicle.kilometraje ? (
-              <View style={styles.gridItem}>
-                <Text style={styles.gridLabel}>Kilometraje</Text>
-                <Text style={styles.gridValue}>{vehicle.kilometraje} km</Text>
-              </View>
-            ) : null}
-            {vehicle.codigoObd ? (
-              <View style={styles.gridItem}>
-                <Text style={styles.gridLabel}>Código OBD2</Text>
-                <Text style={styles.gridValue}>{vehicle.codigoObd}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          {/* Falla reportada */}
-          <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Falla reportada</Text>
-          <View style={styles.divider} />
-          <View style={styles.fallaBox}>
-            <Text style={styles.fallaLabel}>Descripción del problema</Text>
-            <Text style={styles.fallaText}>{vehicle.falla}</Text>
-          </View>
-
-          {/* Diagnóstico */}
-          <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Diagnóstico</Text>
-          <View style={styles.divider} />
-          {filteredMessages.map((msg, i) => (
-            <View key={i} style={msg.role === 'assistant' ? styles.msgAI : styles.msgUser}>
-              <Text style={[styles.msgRole, msg.role === 'assistant' ? styles.msgRoleAI : styles.msgRoleUser]}>
-                {msg.role === 'assistant' ? 'MechaIA' : 'Mecánico'}
-              </Text>
-              <Text style={styles.msgText}>{msg.content}</Text>
-            </View>
-          ))}
-
+        {/* Falla reportada */}
+        <Text style={styles.sectionTitle}>Motivo de ingreso</Text>
+        <View style={styles.fallaBox}>
+          <Text style={styles.fallaText}>{vehicle.falla}</Text>
         </View>
+
+        {/* Diagnóstico final */}
+        <Text style={styles.sectionTitle}>Diagnóstico</Text>
+        <View style={styles.contentBox}>
+          <Text style={styles.contentText}>{reportData.diagnosticoFinal}</Text>
+        </View>
+
+        {/* Trabajos realizados (solo si hay) */}
+        {reportData.trabajosRealizados.trim() ? (
+          <>
+            <Text style={styles.sectionTitle}>Trabajos realizados</Text>
+            <View style={styles.contentBox}>
+              <Text style={styles.contentText}>{reportData.trabajosRealizados}</Text>
+            </View>
+          </>
+        ) : null}
+
+        {/* Observaciones (solo si hay) */}
+        {reportData.observaciones.trim() ? (
+          <>
+            <Text style={styles.sectionTitle}>Observaciones</Text>
+            <View style={styles.contentBox}>
+              <Text style={styles.contentText}>{reportData.observaciones}</Text>
+            </View>
+          </>
+        ) : null}
 
         {/* Footer */}
         <View style={styles.footer} fixed>
-          <View>
-            <Text style={styles.footerBrand}>MechaIA · Diagnóstico Automotriz con IA</Text>
-            <Text style={styles.footerText}>Este informe fue generado con inteligencia artificial. Verificar recomendaciones con un profesional.</Text>
+          <View style={styles.footerLeft}>
+            <View style={styles.footerLine} />
+            <Text style={styles.footerText}>{workshopName}</Text>
+            <Text style={styles.footerText}>Informe generado el {fecha}</Text>
           </View>
-          {qrDataUrl ? <Image src={qrDataUrl} style={styles.qrImage} /> : null}
+          <View style={styles.footerRight}>
+            <View>
+              <Text style={styles.mechaiaLabel}>Generado con</Text>
+              <Text style={[styles.mechaiaLabel, { fontFamily: 'Helvetica-Bold' }]}>MechaIA</Text>
+            </View>
+            {qrDataUrl ? <Image src={qrDataUrl} style={styles.qrImage} /> : null}
+          </View>
         </View>
 
       </Page>
