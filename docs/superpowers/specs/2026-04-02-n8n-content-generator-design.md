@@ -103,10 +103,11 @@ msg += `\nGuardados en Google Sheets → hoja "Orgánico"`;
 return [{ json: { mensaje: msg } }];
 ```
 
-### 7. WhatsApp — HTTP Request
-- Método: POST a WhatsApp Business API (o Twilio si no hay acceso directo)
-- Envía el mensaje resumen al número del usuario
-- Si WhatsApp no está disponible: fallback a email via Gmail node
+### 7. Gmail — Enviar resumen
+- Nodo Gmail (credencial ya conectada en n8n)
+- Destinatario: lautarogarofano@gmail.com
+- Asunto: `MechaIA — 7 posts generados ✅ [fecha]`
+- Cuerpo: lista de los 7 posts con tipo y hook, más link al Google Sheet
 
 ## Google Sheets — Estructura de la hoja "Orgánico"
 
@@ -116,7 +117,7 @@ return [{ json: { mensaje: msg } }];
 ## Credenciales necesarias
 - Anthropic API key: ya existe en el flow de Meta Ads
 - Google Sheets OAuth: ya existe (`oznLinTRYqMlGoYZ`)
-- WhatsApp: requiere configurar credencial nueva (WhatsApp Business API o Twilio)
+- Gmail: ya conectado en n8n (misma cuenta lautarogarofano@gmail.com)
 
 ## Lo que NO incluye este spec
 - Publicación automática a Instagram/TikTok (requiere APIs de Meta + TikTok for Business)
