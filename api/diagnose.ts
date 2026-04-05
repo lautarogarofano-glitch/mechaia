@@ -1,7 +1,34 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
-import { searchKnowledgeBase, formatRagContext } from './_rag';
+
+// ─── RAG (inline) ────────────────────────────────────────────────────────────
+interface RagChunk { content: string; metadata: Record<string, string>; similarity: number; }
+
+async function searchKnowledgeBase(query: string, supabaseUrl: string, supabaseKey: string, matchCount = 4, minSimilarity = 0.35): Promise<RagChunk[]> {
+  const googleApiKey = process.env.GOOGLE_AI_API_KEY;
+  if (!googleApiKey) return [];
+  try {
+    const embRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${googleApiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'models/gemini-embedding-001', content: { parts: [{ text: query }] }, outputDimensionality: 768 }),
+    });
+    if (!embRes.ok) return [];
+    const embData = await embRes.json() as { embedding?: { values?: number[] } };
+    const embedding = embData.embedding?.values;
+    if (!embedding) return [];
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data, error } = await supabase.rpc('search_knowledge_base', { query_embedding: embedding, match_count: matchCount, min_similarity: minSimilarity });
+    if (error || !data) return [];
+    return data as RagChunk[];
+  } catch { return []; }
+}
+
+function formatRagContext(chunks: RagChunk[]): string {
+  if (chunks.length === 0) return '';
+  return `\nINFORMACIÓN TÉCNICA DE LA BASE DE CONOCIMIENTO:\n${chunks.map((c, i) => `[Doc ${i + 1} — ${c.metadata?.filename || 'técnico'}, similitud: ${(c.similarity * 100).toFixed(0)}%]\n${c.content}`).join('\n\n')}\n`;
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Rate limiting: 20 requests por IP por minuto, persistido en Supabase
 const RATE_LIMIT = 20;
@@ -62,19 +89,35 @@ async function innerHandler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Verificar autenticación
-  const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey);
-  const { data: { user }, error: authError } = await supabaseAnon.auth.getUser(token);
-  if (authError || !user) {
-    return res.status(401).json({ error: 'Token inválido o expirado' });
+  let user: { id: string } | null = null;
+  try {
+    const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey);
+    const { data: { user: u }, error: authError } = await supabaseAnon.auth.getUser(token);
+    if (authError || !u) {
+      return res.status(401).json({ error: 'Token inválido o expirado' });
+    }
+    user = u;
+  } catch (e: unknown) {
+    const err = e as { message?: string };
+    console.error('[diagnose] Error verificando auth:', err?.message);
+    return res.status(500).json({ error: 'Error de autenticación. Intentá de nuevo.' });
   }
 
-  // Verificar suscripción y límite de mensajes (service role key garantizado arriba)
+  // Verificar suscripción y límite de mensajes
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-  const { data: subscription } = await supabaseAdmin
-    .from('subscriptions')
-    .select('status, plan, messages_used, messages_limit, trial_diagnostics_remaining')
-    .eq('user_id', user.id)
-    .single();
+  let subscription: { status: string; plan: string; messages_used: number; messages_limit: number | null; trial_diagnostics_remaining: number | null } | null = null;
+  try {
+    const { data } = await supabaseAdmin
+      .from('subscriptions')
+      .select('status, plan, messages_used, messages_limit, trial_diagnostics_remaining')
+      .eq('user_id', user.id)
+      .single();
+    subscription = data;
+  } catch (e: unknown) {
+    const err = e as { message?: string };
+    console.error('[diagnose] Error verificando suscripción:', err?.message);
+    return res.status(500).json({ error: 'Error verificando suscripción. Intentá de nuevo.' });
+  }
 
   const isActive = subscription?.status === 'active';
   const isTrial = subscription?.status === 'trial';
@@ -95,16 +138,18 @@ async function innerHandler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Incrementar contador de mensajes (solo para analytics)
-  const updatePayload: Record<string, unknown> = {
-    messages_used: (subscription.messages_used || 0) + 1,
-    updated_at: new Date().toISOString(),
-  };
-  const { error: updateError } = await supabaseAdmin
-    .from('subscriptions')
-    .update(updatePayload)
-    .eq('user_id', user.id);
-  if (updateError) {
-    console.error('[diagnose] Error actualizando subscription:', updateError.message);
+  try {
+    await supabaseAdmin
+      .from('subscriptions')
+      .update({
+        messages_used: (subscription.messages_used || 0) + 1,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', user.id);
+  } catch (e: unknown) {
+    const err = e as { message?: string };
+    console.error('[diagnose] Error actualizando subscription:', err?.message);
+    // No bloquear el diagnóstico por un error de analytics
   }
 
   try {
@@ -175,30 +220,65 @@ Recordá: sos un asistente técnico de alto nivel. Tu objetivo es guiar al mecá
     while (lastIdx >= 0 && trimmedMessages[lastIdx].role === 'assistant') lastIdx--;
     const filteredMessages = trimmedMessages.slice(0, lastIdx + 1);
 
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(500).json({ error: 'Configuración del servidor incompleta (API key)' });
+    }
+
     // Iniciar streaming SSE
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
 
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
     try {
-      const stream = anthropic.messages.stream({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1500,
-        system: systemPrompt,
-        messages: filteredMessages,
+      const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.ANTHROPIC_API_KEY!,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1500,
+          stream: true,
+          system: systemPrompt,
+          messages: filteredMessages,
+        }),
       });
 
-      for await (const event of stream) {
-        if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-          res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
+      if (!anthropicRes.ok || !anthropicRes.body) {
+        const errText = await anthropicRes.text().catch(() => 'unknown error');
+        console.error('[diagnose] Anthropic API error:', anthropicRes.status, errText);
+        res.write(`data: ${JSON.stringify({ error: 'Error procesando el diagnóstico. Intentá de nuevo.' })}\n\n`);
+      } else {
+        const reader = anthropicRes.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (raw === '[DONE]') break;
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
+                res.write(`data: ${JSON.stringify({ text: parsed.delta.text })}\n\n`);
+              }
+            } catch { /* chunk incompleto */ }
+          }
         }
       }
     } catch (error: unknown) {
       const err = error as { message?: string };
-      console.error('[diagnose] Error en Anthropic stream:', err?.message);
+      console.error('[diagnose] Error en stream:', err?.message);
       res.write(`data: ${JSON.stringify({ error: 'Error procesando el diagnóstico. Intentá de nuevo.' })}\n\n`);
     }
 
