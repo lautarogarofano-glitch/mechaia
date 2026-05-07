@@ -138,7 +138,14 @@ export function Pricing({ onBack, trialExhausted }: PricingProps) {
         </div>
 
         <p className="text-center text-xs text-slate-400 dark:text-slate-500 mt-6">
-          Cobro automático mensual con tarjeta. Cancelá cuando quieras desde tu perfil.
+          Cobro automático mensual con tarjeta. Cancelá cuando quieras desde tu perfil. Sin reembolsos.
+        </p>
+
+        <p className="text-center text-xs text-slate-400 dark:text-slate-500 mt-2">
+          Al suscribirte aceptás los{' '}
+          <a href="/terms" className="underline hover:text-slate-600 dark:hover:text-slate-300">Términos</a>,{' '}
+          la <a href="/privacy" className="underline hover:text-slate-600 dark:hover:text-slate-300">Política de Privacidad</a>{' '}
+          y la <a href="/refund" className="underline hover:text-slate-600 dark:hover:text-slate-300">Política de Reembolsos</a>.
         </p>
 
         {onBack && (

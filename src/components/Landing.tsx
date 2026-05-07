@@ -134,6 +134,9 @@ const translations = {
     },
     footer: {
       rights: 'Todos los derechos reservados.',
+      privacy: 'Privacidad',
+      terms: 'Términos',
+      refund: 'Reembolsos',
     },
   },
   en: {
@@ -266,6 +269,9 @@ const translations = {
     },
     footer: {
       rights: 'All rights reserved.',
+      privacy: 'Privacy',
+      terms: 'Terms',
+      refund: 'Refunds',
     },
   },
 };
@@ -667,6 +673,11 @@ function FooterSection({ t }: { t: typeof translations['es'] }) {
           <img src="/logo.png" alt="MechaIA" className="w-7 h-7 object-contain" />
           <span className="font-semibold text-slate-300">MechaIA</span>
         </div>
+        <nav className="flex items-center gap-5 text-sm text-slate-500">
+          <a href="/privacy" className="hover:text-slate-300 transition-colors">{t.footer.privacy}</a>
+          <a href="/terms" className="hover:text-slate-300 transition-colors">{t.footer.terms}</a>
+          <a href="/refund" className="hover:text-slate-300 transition-colors">{t.footer.refund}</a>
+        </nav>
         <p className="text-sm text-slate-500">
           © {new Date().getFullYear()} MechaIA. {t.footer.rights}
         </p>

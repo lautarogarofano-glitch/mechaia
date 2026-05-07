@@ -156,6 +156,15 @@ export function Auth({ onAuthSuccess }: AuthProps) {
               ? 'Crear cuenta'
               : 'Enviar email de recuperación'}
           </button>
+
+          {mode === 'register' && (
+            <p className="text-xs text-center text-slate-500 dark:text-slate-400 leading-relaxed">
+              Al crear la cuenta aceptás los{' '}
+              <a href="/terms" className="underline hover:text-slate-700 dark:hover:text-slate-300">Términos</a>,{' '}
+              la <a href="/privacy" className="underline hover:text-slate-700 dark:hover:text-slate-300">Política de Privacidad</a>{' '}
+              y la <a href="/refund" className="underline hover:text-slate-700 dark:hover:text-slate-300">Política de Reembolsos</a>.
+            </p>
+          )}
         </form>
 
         <div className="text-center mt-6 space-y-2">

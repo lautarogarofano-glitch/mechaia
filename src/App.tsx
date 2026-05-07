@@ -9,12 +9,33 @@ import { ResetPassword } from './components/ResetPassword';
 import { WelcomeSetup } from './components/WelcomeSetup';
 import { Settings } from './components/Settings';
 import { Landing } from './components/Landing';
+import { PrivacyPolicy } from './components/PrivacyPolicy';
+import { TermsOfService } from './components/TermsOfService';
+import { RefundPolicy } from './components/RefundPolicy';
 import { supabase } from './lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { VehicleData, DiagnosisSession, Message, Subscription } from './types/vehicle';
 import './App.css';
 
 function App() {
+  const [pathname, setPathname] = useState(() =>
+    typeof window !== 'undefined' ? window.location.pathname : '/'
+  );
+
+  useEffect(() => {
+    const onPopState = () => setPathname(window.location.pathname);
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  if (pathname === '/privacy') return <PrivacyPolicy />;
+  if (pathname === '/terms') return <TermsOfService />;
+  if (pathname === '/refund') return <RefundPolicy />;
+
+  return <MainApp />;
+}
+
+function MainApp() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRecoverySession, setIsRecoverySession] = useState(false);

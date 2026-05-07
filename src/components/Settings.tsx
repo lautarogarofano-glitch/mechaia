@@ -9,7 +9,7 @@ interface SettingsProps {
   onBack: () => void;
 }
 
-type Tab = 'taller' | 'cuenta' | 'plan' | 'facturacion';
+type Tab = 'taller' | 'cuenta' | 'plan' | 'facturacion' | 'legal';
 
 const PORTAL_URL = 'https://app.lemonsqueezy.com/my-orders';
 
@@ -121,6 +121,7 @@ export function Settings({ user, subscription, onBack }: SettingsProps) {
     { id: 'cuenta', label: 'Cuenta', icon: '👤' },
     { id: 'plan', label: 'Mi Plan', icon: '⭐' },
     { id: 'facturacion', label: 'Facturación', icon: '💳' },
+    { id: 'legal', label: 'Legal', icon: '📜' },
   ];
 
   return (
@@ -392,6 +393,46 @@ export function Settings({ user, subscription, onBack }: SettingsProps) {
 
                 <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-4">
                   Los pagos son procesados de forma segura por Lemon Squeezy.
+                </p>
+              </div>
+            )}
+
+            {/* Legal */}
+            {activeTab === 'legal' && (
+              <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Legal</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                  Documentos legales que rigen el uso de MechaIA.
+                </p>
+
+                <ul className="divide-y divide-slate-200 dark:divide-slate-700">
+                  {[
+                    { href: '/privacy', title: 'Política de Privacidad', desc: 'Qué datos recolectamos y cómo los usamos.' },
+                    { href: '/terms', title: 'Términos y Condiciones', desc: 'Reglas de uso del servicio.' },
+                    { href: '/refund', title: 'Política de Reembolsos', desc: 'No realizamos reembolsos. Cancelación libre.' },
+                  ].map((item) => (
+                    <li key={item.href}>
+                      <a
+                        href={item.href}
+                        className="flex items-center justify-between py-4 group"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            {item.title}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{item.desc}</p>
+                        </div>
+                        <span className="text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">→</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-6">
+                  Para consultas legales escribinos a{' '}
+                  <a href="mailto:legal@mechaia.app" className="underline hover:text-slate-600 dark:hover:text-slate-300">
+                    legal@mechaia.app
+                  </a>.
                 </p>
               </div>
             )}
