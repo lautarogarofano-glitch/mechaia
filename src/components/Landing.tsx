@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AlertCircle, Clock, MessageSquare, FileText, Smartphone, History, Zap, Wrench, CheckCircle } from 'lucide-react';
+import { LiquidBackground } from './glass/LiquidBackground';
 
 type Lang = 'es' | 'en';
 
@@ -376,10 +377,8 @@ function LandingNav({
 
 function HeroSection({ onStartAuth, t }: { onStartAuth: () => void; t: typeof translations['es'] }) {
   return (
-    <section className="relative min-h-screen flex flex-col items-center justify-center pt-16 pb-20 px-4 overflow-hidden">
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="w-[600px] h-[600px] rounded-full bg-blue-600/10 blur-[120px]" />
-      </div>
+    <section className="relative min-h-screen flex flex-col items-center justify-center pt-16 pb-20 px-4 overflow-hidden isolate">
+      <LiquidBackground />
 
       <div className="relative z-10 max-w-4xl mx-auto text-center">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-300 text-sm font-medium mb-6">

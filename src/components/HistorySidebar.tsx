@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { DiagnosisSession, Subscription } from '../types/vehicle';
+import { CarBrandLogo } from './CarBrandLogo';
 
 interface HistorySidebarProps {
   sessions: DiagnosisSession[];
@@ -63,7 +64,7 @@ export function HistorySidebar({ sessions, onSelectSession, onNewSession, onDele
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por patente, marca..."
-          className="w-full h-9 px-3 text-sm bg-slate-100 dark:bg-slate-700 rounded-lg border-0 text-slate-900 dark:text-white placeholder-slate-400"
+          className="w-full h-9 px-3 text-sm bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-transparent text-slate-900 dark:text-white placeholder-slate-400"
         />
       </div>
 
@@ -93,12 +94,10 @@ export function HistorySidebar({ sessions, onSelectSession, onNewSession, onDele
               <button
                 key={session.id}
                 onClick={() => onSelectSession(session)}
-                className="w-full text-left p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group"
+                className="w-full text-left p-3 rounded-xl bg-white dark:bg-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-transparent transition-colors group"
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-blue-600 dark:text-blue-400 text-lg">🚗</span>
-                  </div>
+                  <CarBrandLogo marca={session.vehicle.marca} size={36} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
                       <p className="font-medium text-sm text-slate-900 dark:text-white truncate">

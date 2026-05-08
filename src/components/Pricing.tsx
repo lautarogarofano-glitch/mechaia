@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { LightLiquidBackground } from './glass/LightLiquidBackground';
 
 interface PricingProps {
   onBack?: () => void;
@@ -40,8 +41,9 @@ export function Pricing({ onBack, trialExhausted }: PricingProps) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-4xl">
+    <div className="min-h-screen relative isolate flex items-center justify-center px-4 py-12">
+      <LightLiquidBackground />
+      <div className="relative z-10 w-full max-w-4xl">
         <div className="text-center mb-10">
           <img src="/logo.png" alt="MechaIA" className="w-16 h-16 object-contain mx-auto mb-4" />
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">

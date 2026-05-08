@@ -74,6 +74,17 @@ module.exports = {
           "radial-gradient(ellipse at center, transparent 40%, rgba(2,6,23,0.85) 100%)",
       },
       fontFamily: {
+        sans: [
+          "Geist",
+          "ui-sans-serif",
+          "system-ui",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "Roboto",
+          "sans-serif",
+        ],
+        mono: ["'Geist Mono'", "ui-monospace", "SFMono-Regular", "monospace"],
         geist: ["Geist", "ui-sans-serif", "system-ui", "sans-serif"],
         "geist-mono": ["'Geist Mono'", "ui-monospace", "monospace"],
       },

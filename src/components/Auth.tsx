@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Eye, EyeOff } from 'lucide-react';
+import { LightLiquidBackground } from './glass/LightLiquidBackground';
 
 interface AuthProps {
   onAuthSuccess: () => void;
@@ -61,8 +62,9 @@ export function Auth({ onAuthSuccess }: AuthProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 px-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen relative isolate flex items-center justify-center px-4">
+      <LightLiquidBackground />
+      <div className="relative z-10 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="w-20 h-20 mx-auto mb-4">
             <img src="/logo.png" alt="MechaIA" className="w-20 h-20 object-contain" />

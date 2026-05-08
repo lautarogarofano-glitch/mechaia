@@ -318,7 +318,7 @@ function MainApp() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       {showWelcome && <WelcomeSetup onComplete={() => setShowWelcome(false)} />}
       {/* Desktop Sidebar */}
-      <div className="hidden lg:block fixed left-0 top-0 h-full w-72 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 z-20">
+      <div className="hidden lg:block fixed left-0 top-0 h-full w-72 bg-slate-100 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 z-20">
         <HistorySidebar
           sessions={sessions}
           onSelectSession={handleSelectSession}
@@ -336,7 +336,7 @@ function MainApp() {
             className="absolute inset-0 bg-black/50"
             onClick={() => setSidebarOpen(false)}
           />
-          <div className="absolute left-0 top-0 h-full w-72 bg-white dark:bg-slate-800 shadow-xl">
+          <div className="absolute left-0 top-0 h-full w-72 bg-slate-100 dark:bg-slate-800 shadow-xl">
             <HistorySidebar
               sessions={sessions}
               onSelectSession={handleSelectSession}
