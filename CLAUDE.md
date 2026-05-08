@@ -242,6 +242,11 @@ npm run process-docs:reset   # Reset de la knowledge_base
 
 ## Aprendizajes
 
+### 2026-05-08: Rutas API dinamicas vs query params en Vite + Vercel
+- **Error**: archivos como `api/admin/users/[id].ts` y `api/admin/users/[id]/action.ts` no son ruteados correctamente por `vercel dev` con `framework: "vite"` — caen al SPA fallback (`/index.html`) por el rewrite catch-all de `vercel.json`.
+- **Fix**: usar query params en lugar de path params. Endpoints como `api/admin/user-detail.ts` y `api/admin/user-action.ts` que reciben `?id=<uuid>`. Mas a prueba de balas y compatible 100% con Vite + Vercel.
+- **Aplicar en**: cualquier endpoint nuevo en `api/`. Evitar `[param]` en folder names; preferir un solo archivo plano que parsee `req.query`.
+
 <!-- Cada vez que un error se repita, documentar aqui:
 ### YYYY-MM-DD: Titulo
 - **Error:**

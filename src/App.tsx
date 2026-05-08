@@ -12,6 +12,7 @@ import { Landing } from './components/Landing';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfService } from './components/TermsOfService';
 import { RefundPolicy } from './components/RefundPolicy';
+import { TurbulenceFilter } from './components/glass/TurbulenceFilter';
 import { supabase } from './lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { VehicleData, DiagnosisSession, Message, Subscription } from './types/vehicle';
@@ -32,7 +33,12 @@ function App() {
   if (pathname === '/terms') return <TermsOfService />;
   if (pathname === '/refund') return <RefundPolicy />;
 
-  return <MainApp />;
+  return (
+    <>
+      <TurbulenceFilter />
+      <MainApp />
+    </>
+  );
 }
 
 function MainApp() {
@@ -304,6 +310,10 @@ function MainApp() {
     }
   }
 
+  if (currentView === 'admin' && user) {
+    return <AdminDashboard user={user} onBack={() => setCurrentView('form')} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       {showWelcome && <WelcomeSetup onComplete={() => setShowWelcome(false)} />}
@@ -398,8 +408,6 @@ function MainApp() {
               subscription={typeof subscription !== 'string' ? subscription : null}
               onBack={() => setCurrentView('form')}
             />
-          ) : currentView === 'admin' && user ? (
-            <AdminDashboard user={user} onBack={() => setCurrentView('form')} />
           ) : currentView === 'form' ? (
             <div className="pt-8">
               <VehicleForm onSubmit={handleVehicleSubmit} />

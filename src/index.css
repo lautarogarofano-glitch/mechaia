@@ -1,3 +1,20 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .liquid-distort {
+    filter: url(#liquid-glass);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-distort {
+    filter: none !important;
+  }
+  .animate-blob-1,
+  .animate-blob-2,
+  .animate-blob-3 {
+    animation: none !important;
+  }
+}

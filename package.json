@@ -28,7 +28,8 @@
     "react-markdown": "^10.1.0",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.5.5",
