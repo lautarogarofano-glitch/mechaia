@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import { adminClientFromRequest, handleRpcError } from '../_admin-auth';
+import { createClient } from '@supabase/supabase-js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -33,8 +33,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const supabase = adminClientFromRequest(req, res);
-  if (!supabase) return;
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'No autorizado' });
+    return;
+  }
+  const token = authHeader.split(' ')[1];
+
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) {
+    res.status(500).json({ error: 'Supabase env no configurado' });
+    return;
+  }
+
+  const supabase = createClient(url, anonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
 
   const body = parsed.data;
   let rpcCall: { name: string; args: Record<string, unknown> };
@@ -59,7 +74,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { data, error } = await supabase.rpc(rpcCall.name, rpcCall.args);
   if (error) {
-    handleRpcError(res, error.message);
+    const msg = error.message || 'Error desconocido';
+    if (msg.includes('Acceso denegado')) {
+      res.status(403).json({ error: 'Acceso denegado' });
+      return;
+    }
+    if (msg.includes('Usuario no encontrado')) {
+      res.status(404).json({ error: 'Usuario no encontrado' });
+      return;
+    }
+    if (
+      msg.includes('Cantidad fuera de rango') ||
+      msg.includes('Plan invalido') ||
+      msg.includes('Estado invalido') ||
+      msg.includes('Usuario sin suscripcion')
+    ) {
+      res.status(422).json({ error: msg });
+      return;
+    }
+    res.status(500).json({ error: msg });
     return;
   }
   res.status(200).json(data);

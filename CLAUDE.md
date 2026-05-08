@@ -247,6 +247,11 @@ npm run process-docs:reset   # Reset de la knowledge_base
 - **Fix**: usar query params en lugar de path params. Endpoints como `api/admin/user-detail.ts` y `api/admin/user-action.ts` que reciben `?id=<uuid>`. Mas a prueba de balas y compatible 100% con Vite + Vercel.
 - **Aplicar en**: cualquier endpoint nuevo en `api/`. Evitar `[param]` en folder names; preferir un solo archivo plano que parsee `req.query`.
 
+### 2026-05-08: Imports cross-directory en api/ + prefix `_` rompen en produccion
+- **Error**: handlers en subdirectorios (ej `api/admin/users.ts`) que importan helpers cross-directory con prefix `_` (ej `api/_admin-auth.ts`) crashean en runtime con `FUNCTION_INVOCATION_FAILED` 500. En `vercel dev` local funciona, pero al deployar Vercel no incluye el helper en el bundle de la function en subdirectorio. Sintoma: HTTP 500 con `text/plain` body "A server error has occurred".
+- **Fix**: inlinear el helper en cada handler (codigo repetido pero a prueba de balas). Para 3 handlers son ~10 lineas de helper duplicadas, no vale la pena la abstraccion.
+- **Aplicar en**: cualquier handler en `api/<sub>/`. Si necesitas codigo compartido, inlinearlo o crear el helper SIN prefix `_` y en el mismo nivel que los handlers que lo usan. Verificar siempre con `curl -L` directo al endpoint en prod despues de deployar.
+
 <!-- Cada vez que un error se repita, documentar aqui:
 ### YYYY-MM-DD: Titulo
 - **Error:**
