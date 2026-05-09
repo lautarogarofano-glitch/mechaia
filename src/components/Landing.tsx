@@ -342,28 +342,29 @@ function LandingNav({
           ? 'bg-slate-900/80 backdrop-blur-md border-b border-slate-800'
           : 'bg-transparent'
       }`}
+      style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="MechaIA" className="w-8 h-8 object-contain" />
-          <span className="font-bold text-lg">MechaIA</span>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <img src="/logo.png" alt="MechaIA" className="w-8 h-8 object-contain shrink-0" />
+          <span className="font-bold text-lg truncate">MechaIA</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <button
             onClick={onToggleLang}
-            className="px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded-lg transition-colors tracking-widest"
+            className="hidden sm:inline-flex px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded-lg transition-colors tracking-widest"
           >
             {lang === 'es' ? 'EN' : 'ES'}
           </button>
           <button
             onClick={onStartAuth}
-            className="px-4 py-2 text-sm text-slate-300 hover:text-white border border-slate-600 hover:border-slate-400 rounded-xl transition-colors"
+            className="hidden sm:inline-flex px-4 py-2 text-sm text-slate-300 hover:text-white border border-slate-600 hover:border-slate-400 rounded-xl transition-colors whitespace-nowrap"
           >
             {t.nav.login}
           </button>
           <button
             onClick={onStartAuth}
-            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-colors"
+            className="px-3 sm:px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-colors whitespace-nowrap"
           >
             {t.nav.cta}
           </button>
