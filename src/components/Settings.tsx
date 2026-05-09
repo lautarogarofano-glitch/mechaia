@@ -117,7 +117,7 @@ export function Settings({ user, subscription, onBack }: SettingsProps) {
   };
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: 'taller', label: 'Mi Taller', icon: '🏠' },
+    { id: 'taller', label: 'Mi Taller', icon: '🔧' },
     { id: 'cuenta', label: 'Cuenta', icon: '👤' },
     { id: 'plan', label: 'Mi Plan', icon: '⭐' },
     { id: 'facturacion', label: 'Facturación', icon: '💳' },

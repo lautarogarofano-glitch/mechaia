@@ -218,6 +218,7 @@ function MainApp() {
     setCurrentDiagnosticId(undefined);
     setCurrentMessages(undefined);
     setCurrentIsCompleted(false);
+    setSidebarOpen(false);
   };
 
   const handleSelectSession = (session: DiagnosisSession) => {
@@ -256,6 +257,7 @@ function MainApp() {
 
   const handleSettingsView = () => {
     setCurrentView('settings');
+    setSidebarOpen(false);
   };
 
   const handleLogout = async () => {
