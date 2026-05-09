@@ -4,7 +4,14 @@ import { createClient } from '@supabase/supabase-js';
 // ─── RAG (inline) ────────────────────────────────────────────────────────────
 interface RagChunk { content: string; metadata: Record<string, string>; similarity: number; }
 
-async function searchKnowledgeBase(query: string, supabaseUrl: string, supabaseKey: string, matchCount = 4, minSimilarity = 0.35): Promise<RagChunk[]> {
+async function searchKnowledgeBase(
+  query: string,
+  supabaseUrl: string,
+  supabaseKey: string,
+  marcaFilter?: string,
+  matchCount = 8,
+  minSimilarity = 0.25,
+): Promise<RagChunk[]> {
   const googleApiKey = process.env.GOOGLE_AI_API_KEY;
   if (!googleApiKey) return [];
   try {
@@ -18,15 +25,47 @@ async function searchKnowledgeBase(query: string, supabaseUrl: string, supabaseK
     const embedding = embData.embedding?.values;
     if (!embedding) return [];
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const { data, error } = await supabase.rpc('search_knowledge_base', { query_embedding: embedding, match_count: matchCount, min_similarity: minSimilarity });
-    if (error || !data) return [];
+    const { data, error } = await supabase.rpc('search_knowledge_base', {
+      query_embedding: embedding,
+      match_count: matchCount,
+      min_similarity: minSimilarity,
+      marca_filter: marcaFilter ? marcaFilter.toUpperCase().trim() : null,
+    });
+    if (error || !data) {
+      if (error) console.error('[diagnose] RAG RPC error:', error.message);
+      return [];
+    }
     return data as RagChunk[];
-  } catch { return []; }
+  } catch (e) {
+    console.error('[diagnose] RAG exception:', (e as Error).message);
+    return [];
+  }
+}
+
+// Normaliza la marca del form al canónico que se usa en metadata.marca.
+// El form acepta "Citroën" con tilde, "Volkswagen" entero, "Mercedes-Benz" con guión;
+// los seeds y scrapers a veces usan "VW" o variantes. Mapeamos a una sola forma.
+function normalizeMarca(input: string | undefined): string | undefined {
+  if (!input) return undefined;
+  const norm = input
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')   // remueve tildes (combining diacriticals)
+    .toUpperCase()
+    .trim();
+  const aliases: Record<string, string> = {
+    VW: 'VOLKSWAGEN',
+    VAG: 'VOLKSWAGEN',
+    GM: 'CHEVROLET',
+    GM_FIAT: 'CHEVROLET',
+    MERCEDES: 'MERCEDES-BENZ',
+    'MERCEDES BENZ': 'MERCEDES-BENZ',
+  };
+  return aliases[norm] ?? norm;
 }
 
 function formatRagContext(chunks: RagChunk[]): string {
-  if (chunks.length === 0) return '';
-  return `\nINFORMACIÓN TÉCNICA DE LA BASE DE CONOCIMIENTO:\n${chunks.map((c, i) => `[Doc ${i + 1} — ${c.metadata?.filename || 'técnico'}, similitud: ${(c.similarity * 100).toFixed(0)}%]\n${c.content}`).join('\n\n')}\n`;
+  if (chunks.length === 0) return '\n[NO HAY INFORMACIÓN TÉCNICA RELEVANTE EN LA BASE DE CONOCIMIENTO PARA ESTE CASO]\n';
+  return `\nINFORMACIÓN TÉCNICA DE LA BASE DE CONOCIMIENTO:\n${chunks.map((c, i) => `[Doc ${i + 1} — ${c.metadata?.filename || 'técnico'} (${c.metadata?.marca || '?'}), similitud: ${(c.similarity * 100).toFixed(0)}%]\n${c.content}`).join('\n\n')}\n`;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -167,13 +206,37 @@ async function innerHandler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Búsqueda semántica en la base de conocimiento técnico
+    // Búsqueda semántica en la base de conocimiento técnico.
+    // CRÍTICO: la query incluye el último mensaje del usuario para que los síntomas
+    // que aporta en el chat (no en el form) lleguen al RAG.
+    const lastUserMsg = [...messages].reverse().find((m: { role: string }) => m.role === 'user');
+    const lastUserText = typeof lastUserMsg?.content === 'string' ? lastUserMsg.content.slice(0, 500) : '';
+    const ragQuery = [
+      vehicle.marca,
+      vehicle.modelo,
+      vehicle.motor,
+      vehicle.codigoObd,
+      vehicle.falla,
+      lastUserText,
+    ].filter(Boolean).join(' ');
+
+    const marcaNormalized = normalizeMarca(vehicle.marca);
     const ragChunks = await searchKnowledgeBase(
-      `${vehicle.marca} ${vehicle.modelo} ${vehicle.falla} ${vehicle.codigoObd || ''}`,
+      ragQuery,
       supabaseUrl,
       supabaseServiceKey,
+      marcaNormalized,
     );
     const ragContext = formatRagContext(ragChunks);
+
+    // Observabilidad mínima — saber qué está trayendo el RAG en producción
+    console.log('[diagnose] RAG query:', ragQuery.slice(0, 200));
+    console.log('[diagnose] RAG marca filter:', vehicle.marca, '→', marcaNormalized);
+    console.log('[diagnose] RAG chunks:', ragChunks.length, ragChunks.map(c => ({
+      marca: c.metadata?.marca,
+      file: (c.metadata?.filename || '').slice(0, 50),
+      sim: c.similarity.toFixed(3),
+    })));
 
     const systemPrompt = `Eres MechaIA, un asistente experto en diagnóstico automotriz con más de 20 años de experiencia en talleres mecánicos de toda Latinoamérica.
 
@@ -189,11 +252,18 @@ REGLAS FUNDAMENTALES:
 7. Mencioná si la falla puede ser peligrosa para el conductor
 8. Siempre indicá valores esperados vs medidos cuando sugerís una prueba
 
+USO OBLIGATORIO DEL CONTEXTO TÉCNICO:
+- Al final de este prompt hay un bloque "INFORMACIÓN TÉCNICA DE LA BASE DE CONOCIMIENTO" con docs recuperados por similitud semántica para este caso.
+- SI el bloque tiene info aplicable al modelo/falla, USALA y citala explícitamente como [Doc 1], [Doc 2], etc. al referirte a un dato específico (resistencias, presiones, OBD codes, kilometrajes típicos).
+- SI el bloque dice "[NO HAY INFORMACIÓN TÉCNICA RELEVANTE]" o los docs no aplican a la falla preguntada, DECÍ EXPLÍCITAMENTE al inicio: "No tengo datos específicos en mi base sobre esta falla puntual en este modelo, te respondo por conocimiento general del sistema." y después seguí.
+- NUNCA inventes valores numéricos específicos (resistencias en ohms, presiones en bar, torques en Nm, voltajes exactos) si no están en el contexto y no son universalmente conocidos. Si no los tenés, decí "verificá en manual de servicio" en vez de inventar.
+- Si el contexto incluye reportes reales de usuarios (opinautos), priorizalos como evidencia empírica del modelo específico.
+
 ESTRUCTURA DE RESPUESTA:
 - Análisis inicial breve
 - Preguntas de diagnóstico (si necesitás más datos)
 - Hipótesis con probabilidades
-- Pasos de verificación concretos
+- Pasos de verificación concretos (citá [Doc N] cuando uses datos del contexto)
 - Advertencias de seguridad si aplica
 
 DATOS DEL VEHÍCULO:
@@ -224,6 +294,17 @@ Recordá: sos un asistente técnico de alto nivel. Tu objetivo es guiar al mecá
       return res.status(500).json({ error: 'Configuración del servidor incompleta (API key)' });
     }
 
+    // Selección híbrida de modelo:
+    // - Sonnet 4.6 cuando el caso es técnicamente exigente (hay código OBD en form
+    //   o el último mensaje del usuario menciona un código OBD).
+    // - Haiku 4.5 para charla introductoria / preguntas generales (más barato).
+    // El usuario eligió híbrido para balancear calidad y costo.
+    const obdInForm = (vehicle.codigoObd || '').trim().length > 0;
+    const obdInChat = /\b[PpCcBbUu][0-9][0-9a-fA-F]{3}\b/.test(lastUserText);
+    const useSonnet = obdInForm || obdInChat;
+    const modelToUse = useSonnet ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001';
+    console.log('[diagnose] model:', modelToUse, '(obdInForm:', obdInForm, 'obdInChat:', obdInChat, ')');
+
     // Iniciar streaming SSE
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -239,7 +320,7 @@ Recordá: sos un asistente técnico de alto nivel. Tu objetivo es guiar al mecá
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
+          model: modelToUse,
           max_tokens: 1500,
           stream: true,
           system: systemPrompt,
