@@ -22,7 +22,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
-const googleApiKey = process.env.GOOGLE_AI_API_KEY || '';
+const googleApiKey = process.env.GOOGLE_AI_API_KEY_INGEST || process.env.GOOGLE_AI_API_KEY || '';
 
 if (!supabaseUrl || !supabaseKey || !googleApiKey) {
   console.error('❌ Faltan variables de entorno.');

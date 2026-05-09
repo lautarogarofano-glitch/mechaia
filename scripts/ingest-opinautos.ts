@@ -27,7 +27,8 @@ if (fs.existsSync(envFile)) {
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.VITE_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-const googleApiKey = process.env.GOOGLE_AI_API_KEY!;
+// Preferimos GOOGLE_AI_API_KEY_INGEST (cuota separada para no tirar prod abajo).
+const googleApiKey = (process.env.GOOGLE_AI_API_KEY_INGEST || process.env.GOOGLE_AI_API_KEY)!;
 
 // Lista de modelos populares en MERCOSUR. Las marcas en metadata se guardan
 // uppercase (CHEVROLET) para matchear con el filtro del RPC.

@@ -33,7 +33,8 @@ const EMBED_DELAY_MS = 200;   // delay entre llamadas a embedding API (rate limi
 // Variables de entorno (requiere .env.local o env seteados)
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
-const googleApiKey = process.env.GOOGLE_AI_API_KEY || '';
+// Preferimos GOOGLE_AI_API_KEY_INGEST (cuota separada para no tirar prod abajo).
+const googleApiKey = process.env.GOOGLE_AI_API_KEY_INGEST || process.env.GOOGLE_AI_API_KEY || '';
 
 if (!supabaseUrl || !supabaseKey || !googleApiKey) {
   console.error('❌ Faltan variables de entorno. Verificá VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY y GOOGLE_AI_API_KEY');
