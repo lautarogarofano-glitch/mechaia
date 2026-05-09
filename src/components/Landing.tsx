@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { AlertCircle, Clock, MessageSquare, FileText, Smartphone, History, Zap, Wrench, CheckCircle } from 'lucide-react';
+import { AlertCircle, Clock, MessageSquare, FileText, Smartphone, History, Zap, Wrench, CheckCircle, Download } from 'lucide-react';
 import { LiquidBackground } from './glass/LiquidBackground';
+import { InstallAppModal } from './InstallAppModal';
 
 type Lang = 'es' | 'en';
 
@@ -283,6 +284,7 @@ interface LandingProps {
 
 export function Landing({ onStartAuth }: LandingProps) {
   const [scrolled, setScrolled] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
   const [lang, setLang] = useState<Lang>(() => {
     return (localStorage.getItem('lang') as Lang) || 'es';
   });
@@ -309,7 +311,8 @@ export function Landing({ onStartAuth }: LandingProps) {
   return (
     <div className="bg-slate-950 text-white">
       <LandingNav scrolled={scrolled} onStartAuth={onStartAuth} t={t} lang={lang} onToggleLang={toggleLang} />
-      <HeroSection onStartAuth={onStartAuth} t={t} />
+      <HeroSection onStartAuth={onStartAuth} onInstallApp={() => setInstallOpen(true)} t={t} />
+      <InstallAppModal open={installOpen} onClose={() => setInstallOpen(false)} />
       <ProblemSection t={t} />
       <HowItWorksSection t={t} />
       <FeaturesSection t={t} />
@@ -376,7 +379,7 @@ function LandingNav({
 
 // ── Hero ─────────────────────────────────────────────────────────────────────
 
-function HeroSection({ onStartAuth, t }: { onStartAuth: () => void; t: typeof translations['es'] }) {
+function HeroSection({ onStartAuth, onInstallApp, t }: { onStartAuth: () => void; onInstallApp: () => void; t: typeof translations['es'] }) {
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center pt-16 pb-20 px-4 overflow-hidden isolate">
       <LiquidBackground />
@@ -395,7 +398,7 @@ function HeroSection({ onStartAuth, t }: { onStartAuth: () => void; t: typeof tr
           {t.hero.subtitle}
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-3 justify-center mb-16">
+        <div className="flex flex-col sm:flex-row gap-3 justify-center mb-4">
           <button
             onClick={onStartAuth}
             className="px-8 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-semibold text-base transition-all shadow-lg shadow-blue-900/30"
@@ -404,10 +407,21 @@ function HeroSection({ onStartAuth, t }: { onStartAuth: () => void; t: typeof tr
           </button>
           <a
             href="#como-funciona"
-            className="px-8 py-3.5 border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white rounded-xl font-medium text-base transition-colors"
+            className="px-8 py-3.5 border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white rounded-xl font-medium text-base transition-colors text-center"
           >
             {t.hero.secondaryCta}
           </a>
+        </div>
+
+        <div className="flex justify-center mb-16">
+          <button
+            type="button"
+            onClick={onInstallApp}
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm text-slate-300 hover:text-white border border-slate-700/80 hover:border-slate-500 bg-slate-900/40 hover:bg-slate-800/60 backdrop-blur-sm rounded-full transition-all"
+          >
+            <Download className="w-4 h-4" />
+            Descargar app para tu cel
+          </button>
         </div>
 
         <div className="max-w-2xl mx-auto rounded-2xl border border-slate-700 shadow-2xl overflow-hidden bg-slate-900">
