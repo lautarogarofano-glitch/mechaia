@@ -6,6 +6,15 @@
   .liquid-distort {
     filter: url(#liquid-glass);
   }
+  .safe-pt {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-mt {
+    margin-top: env(safe-area-inset-top);
+  }
+  .safe-pb {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

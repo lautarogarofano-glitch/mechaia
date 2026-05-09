@@ -318,7 +318,7 @@ function MainApp() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       {showWelcome && <WelcomeSetup onComplete={() => setShowWelcome(false)} />}
       {/* Desktop Sidebar */}
-      <div className="hidden lg:block fixed left-0 top-0 h-full w-72 bg-slate-100 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 z-20">
+      <div className="hidden lg:block fixed left-0 top-0 h-full w-72 bg-slate-100 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 z-20 safe-pt">
         <HistorySidebar
           sessions={sessions}
           onSelectSession={handleSelectSession}
@@ -336,7 +336,7 @@ function MainApp() {
             className="absolute inset-0 bg-black/50"
             onClick={() => setSidebarOpen(false)}
           />
-          <div className="absolute left-0 top-0 h-full w-72 bg-slate-100 dark:bg-slate-800 shadow-xl">
+          <div className="absolute left-0 top-0 h-full w-72 bg-slate-100 dark:bg-slate-800 shadow-xl safe-pt">
             <HistorySidebar
               sessions={sessions}
               onSelectSession={handleSelectSession}
@@ -353,40 +353,39 @@ function MainApp() {
       <div className="lg:ml-72 min-h-screen">
         {/* Top Navigation */}
         {currentView === 'form' && (
-          <nav className="flex items-center justify-between px-4 py-4 lg:px-8">
-            <div className="flex items-center gap-3">
+          <nav className="safe-pt flex items-center justify-between gap-2 px-4 py-3 sm:py-4 lg:px-8">
+            <div className="flex items-center gap-2 min-w-0">
               <button
-                className="lg:hidden p-2"
+                className="lg:hidden p-2 -ml-2 text-slate-700 dark:text-slate-300"
                 onClick={() => setSidebarOpen(true)}
+                aria-label="Abrir menú"
               >
                 ☰
               </button>
-              <div className="flex items-center gap-2">
-                <img src="/logo.png" alt="MechaIA" className="w-10 h-10 object-contain" />
-                <h1 className="text-xl font-bold text-slate-900 dark:text-white">MechaIA</h1>
-              </div>
+              <img src="/logo.png" alt="MechaIA" className="w-9 h-9 sm:w-10 sm:h-10 object-contain shrink-0" />
+              <h1 className="hidden sm:block text-xl font-bold text-slate-900 dark:text-white">MechaIA</h1>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-500 dark:text-slate-400 hidden sm:inline">
+            <div className="flex items-center gap-1 sm:gap-3 shrink-0">
+              <span className="hidden lg:inline text-sm text-slate-500 dark:text-slate-400">
                 {user.user_metadata?.workshop_name || user.email}
               </span>
               {isAdmin && (
                 <button
                   onClick={() => setCurrentView('admin')}
-                  className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  className="px-3 sm:px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 >
                   Admin
                 </button>
               )}
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                className="px-3 sm:px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               >
                 Salir
               </button>
               <button
                 onClick={handleNewSession}
-                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl"
+                className="px-3 sm:px-4 py-2 text-sm bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl whitespace-nowrap"
               >
                 + Nuevo
               </button>

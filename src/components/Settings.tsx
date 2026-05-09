@@ -125,7 +125,7 @@ export function Settings({ user, subscription, onBack }: SettingsProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 py-8 px-4 lg:px-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 py-8 px-4 lg:px-8 safe-pt">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">

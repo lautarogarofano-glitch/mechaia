@@ -18,7 +18,7 @@ export function AdminDashboard({ user, onBack }: AdminDashboardProps) {
     <div className="min-h-screen relative isolate text-glass-text bg-slate-950 font-geist">
       <LiquidBackground />
 
-      <div className="relative z-10 max-w-6xl mx-auto px-4 py-8 lg:px-8">
+      <div className="relative z-10 max-w-6xl mx-auto px-4 py-8 lg:px-8 safe-pt">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="MechaIA" className="w-10 h-10 object-contain" />
