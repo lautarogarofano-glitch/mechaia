@@ -252,6 +252,41 @@ npm run process-docs:reset   # Reset de la knowledge_base
 - **Fix**: inlinear el helper en cada handler (codigo repetido pero a prueba de balas). Para 3 handlers son ~10 lineas de helper duplicadas, no vale la pena la abstraccion.
 - **Aplicar en**: cualquier handler en `api/<sub>/`. Si necesitas codigo compartido, inlinearlo o crear el helper SIN prefix `_` y en el mismo nivel que los handlers que lo usan. Verificar siempre con `curl -L` directo al endpoint en prod despues de deployar.
 
+### 2026-05-09: RAG estatico ignoraba sintomas del chat — sistema entero refactorizado
+- **Error**: el `searchKnowledgeBase` en `api/diagnose.ts` armaba la query SOLO con campos del form (`marca + modelo + falla + obd`). Cuando el mecanico aportaba sintomas en el chat ("foco quemado", "resistencia baja"), esos terminos no llegaban al RAG nunca. Ademas: `matchCount=4`, `minSimilarity=0.35`, sin filtrar por marca, y la KB tenia 31% de chunks ruido (`lista_de_vehiculos_y_driver`, `curso_potenciacion`, listados de chips) que dominaban el top-k con 60% de similitud sobre los chunks utiles. Resultado: respuestas cualquiera en casos reales.
+- **Fix**: 
+  1. Query del RAG incluye `vehicle.marca + modelo + motor + obd + falla + ULTIMO MENSAJE DEL CHAT` (slice 500 chars).
+  2. `matchCount=8`, `minSimilarity=0.25`, **filtro por marca** via RPC con `marca_filter` parameter (matchea marca exacta + chunks `marca='GENERAL'`).
+  3. `normalizeMarca()` mapea aliases comunes (VW↔VOLKSWAGEN, Citroën↔CITROEN, GM↔CHEVROLET, Mercedes-Benz). El form acepta tildes, los seeds usan formas canonicas.
+  4. System prompt ahora obliga a citar `[Doc N]` cuando usa datos del contexto, decir explicitamente cuando NO tiene info, y entregar **proactivamente** datos de servicio (aceite, bujias, correa) cuando aplica.
+  5. Modelo hibrido: Sonnet 4.6 si hay codigo OBD (en form o chat detectado por regex `/\b[PCBU][0-9][0-9a-fA-F]{3}\b/`), Haiku 4.5 para charla generica. Balance calidad/costo.
+  6. Logs de chunks retornados (marca, filename, sim) en cada request para visibilidad en Vercel logs.
+  7. Cleanup script borra duplicados (mismo content) + chunks de archivos ruidosos. **Correr `scripts/cleanup-kb.ts --apply` periodicamente** despues de ingestas masivas.
+- **Aplicar en**: cualquier futura mejora del RAG. Patrones a recordar:
+  - **La query del RAG debe enriquecerse con el contexto conversacional**, no solo con datos del form.
+  - **El RPC debe filtrar por dimension dura (marca)**, sino los chunks ruidosos dominan via similitud.
+  - **Etiquetado consistente**: chunks deben tener `metadata.marca` en forma canonica (UPPERCASE, sin tildes). Correr `scripts/normalize-marcas.ts --apply` despues de cualquier ingest nuevo.
+  - **Observabilidad obligatoria**: si no logueas que chunks vinieron, no podes diagnosticar fallas del RAG en prod.
+
+### 2026-05-09: opinautos.com sin `<article>` — parser HTML necesita selectores especificos
+- **Error**: el parser generico de HTML extraia toda la pagina de opinautos (incluyendo lista de paises, navegacion, footer) porque el sitio NO usa `<article>` ni `<main>`. Resultado: chunks de 90k+ chars con 5% de info util, embedding malo, RAG inservible.
+- **Fix**: el parser de opinautos en `scripts/ingest-opinautos.ts` usa selectores especificos: arranca despues del primer `<div class="...js-report...">` (cierra el tag de apertura para no arrastrar atributos) y trunca antes de marcadores textuales conocidos del footer (`Resolví mi problema`, `Crea tu usuario`, `Elige tu país`, `class="Footer"`).
+- **Aplicar en**: cualquier scraper futuro de sitios sin tags semanticos estandar — buscar selectores especificos de la app (clases con prefix `js-`, ids de container) antes de hacer regex generico de tags. Ver tambien la limitacion de codigosdtc.com: los diagnosticos por modelo son **paywall premium $7-10/mes**, solo el listado generico es libre.
+
+### 2026-05-09: Supabase trunca queries a 1000 rows si no se pagina con range()
+- **Error**: scripts como `scripts/cleanup-kb.ts` y `scripts/normalize-marcas.ts` usaban `.limit(50000)` para traer todos los chunks pero Supabase devuelve **maximo 1000 rows por request** sin importar el limit. Resultado: el cleanup detecto solo 175 duplicados en una pasada (cuando habia mas), y los reportes finales mostraban distribuciones truncadas.
+- **Fix**: paginar explicitamente con `.range(from, from + 999)` en un loop, acumulando hasta que un batch venga con menos de 1000 filas.
+- **Aplicar en**: cualquier script de mantenimiento que necesite procesar TODA la KB (`knowledge_base`, `subscriptions`, `diagnostics`). Nunca confiar en `.limit(N)` para N > 1000.
+
+### 2026-05-09: ⚠️ Cuota DIARIA del Gemini Embedding free tier (1000 req/dia)
+- **Error**: el ingest masivo de opinautos (~824 chunks → 824+ embeddings) consumio toda la cuota diaria del free tier de `gemini-embedding-001`. Resultado: HTTP 429 con `quotaId: EmbedContentRequestsPerDayPerProjectPerModel-FreeTier`. La cuota NO se renueva hasta el siguiente dia UTC. **Esto rompe la app en prod**: cada call a `/api/diagnose` necesita 1 embedding para el RAG. Sin cuota, `searchKnowledgeBase` devuelve `[]` y el RAG no aporta contexto al modelo.
+- **Fix inmediato**: activar billing en Google AI Studio (https://aistudio.google.com/) → la cuota pasa de 1000/dia a tier pago (10K-1M segun plan). Mientras no haya billing: limitar el ingest masivo a tandas pequeñas distribuidas en varios dias.
+- **Aplicar en**:
+  1. **NUNCA hacer un ingest masivo (+500 embeddings) sin verificar primero que el proyecto Google tiene billing activado.** Free tier es para desarrollo, no para poblar KB de prod.
+  2. **El Google AI key del ingest debe estar SEPARADO del key de produccion** — si comparten cuota, un bulk job tira la app abajo.
+  3. Antes de cualquier script de ingest grande: agregar un check de cuota inicial (1 request de prueba), y al detectar 429, salir con mensaje claro.
+  4. Considerar alternativa: usar el embedding API en modo batch o en horario nocturno cuando la cuota se renueva.
+
 <!-- Cada vez que un error se repita, documentar aqui:
 ### YYYY-MM-DD: Titulo
 - **Error:**

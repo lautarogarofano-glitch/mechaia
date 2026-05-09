@@ -51,15 +51,25 @@ async function main() {
     .from('knowledge_base').select('*', { count: 'exact', head: true });
   console.log(`Total inicial: ${total0} chunks\n`);
 
-  // 1) DUPLICADOS: agrupar por content y dejar el más viejo
+  // 1) DUPLICADOS: agrupar por content y dejar el más viejo.
+  // Supabase trunca a 1000 rows si no paginas explicitamente con range().
   console.log('— Buscando duplicados...');
-  const { data: rows } = await supabase
-    .from('knowledge_base').select('id, content, created_at').limit(50000);
+  const allRows: { id: string; content: string; created_at: string }[] = [];
+  let from = 0;
+  while (true) {
+    const { data } = await supabase
+      .from('knowledge_base').select('id, content, created_at').range(from, from + 999);
+    if (!data || data.length === 0) break;
+    allRows.push(...(data as { id: string; content: string; created_at: string }[]));
+    if (data.length < 1000) break;
+    from += 1000;
+  }
+  console.log(`  Rows scaneados: ${allRows.length}`);
   const byContent = new Map<string, { id: string; created_at: string }[]>();
-  for (const r of rows || []) {
-    const key = r.content as string;
+  for (const r of allRows) {
+    const key = r.content;
     const arr = byContent.get(key) || [];
-    arr.push({ id: r.id as string, created_at: r.created_at as string });
+    arr.push({ id: r.id, created_at: r.created_at });
     byContent.set(key, arr);
   }
   const idsToDelete: string[] = [];
@@ -106,13 +116,20 @@ async function main() {
   }
   console.log();
 
-  // 4) Reporte final
+  // 4) Reporte final con paginacion explicita
   const { count: total1 } = await supabase
     .from('knowledge_base').select('*', { count: 'exact', head: true });
-  const { data: rowsFinal } = await supabase
-    .from('knowledge_base').select('metadata').limit(50000);
+  const allMeta: { metadata: { marca?: string } }[] = [];
+  let off = 0;
+  while (true) {
+    const { data } = await supabase.from('knowledge_base').select('metadata').range(off, off + 999);
+    if (!data || data.length === 0) break;
+    allMeta.push(...(data as { metadata: { marca?: string } }[]));
+    if (data.length < 1000) break;
+    off += 1000;
+  }
   const byMarca: Record<string, number> = {};
-  for (const r of rowsFinal || []) {
+  for (const r of allMeta) {
     const m = (r.metadata as { marca?: string })?.marca || 'UNKNOWN';
     byMarca[m] = (byMarca[m] || 0) + 1;
   }
