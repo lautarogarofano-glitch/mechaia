@@ -9,7 +9,7 @@ interface SettingsProps {
   onBack: () => void;
 }
 
-type Tab = 'taller' | 'cuenta' | 'plan' | 'facturacion' | 'legal';
+type Tab = 'taller' | 'cuenta' | 'plan' | 'legal';
 
 const PORTAL_URL = 'https://app.lemonsqueezy.com/my-orders';
 
@@ -84,7 +84,10 @@ export function Settings({ user, subscription, onBack }: SettingsProps) {
     }
   };
 
-  const handleUpgrade = async () => {
+  const [checkoutLoading, setCheckoutLoading] = useState<'base' | 'turbo' | null>(null);
+
+  const handleSubscribe = async (plan: 'base' | 'turbo') => {
+    setCheckoutLoading(plan);
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token || '';
     const response = await fetch('/api/create-checkout', {
@@ -93,11 +96,13 @@ export function Settings({ user, subscription, onBack }: SettingsProps) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ plan: 'turbo' }),
+      body: JSON.stringify({ plan }),
     });
     const data = await response.json();
     if (data.url) {
       window.location.href = data.url;
+    } else {
+      setCheckoutLoading(null);
     }
   };
 
@@ -120,7 +125,6 @@ export function Settings({ user, subscription, onBack }: SettingsProps) {
     { id: 'taller', label: 'Mi Taller', icon: '🔧' },
     { id: 'cuenta', label: 'Cuenta', icon: '👤' },
     { id: 'plan', label: 'Mi Plan', icon: '⭐' },
-    { id: 'facturacion', label: 'Facturación', icon: '💳' },
     { id: 'legal', label: 'Legal', icon: '📜' },
   ];
 
@@ -338,12 +342,32 @@ export function Settings({ user, subscription, onBack }: SettingsProps) {
 
                 {/* Actions */}
                 <div className="space-y-3">
-                  {subscription && (subscription.status === 'trial' || (subscription.status === 'active' && subscription.plan === 'base')) && (
+                  {subscription?.status === 'trial' && (
+                    <>
+                      <button
+                        onClick={() => handleSubscribe('turbo')}
+                        disabled={checkoutLoading !== null}
+                        className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:opacity-90 transition-opacity text-sm disabled:opacity-50"
+                      >
+                        {checkoutLoading === 'turbo' ? 'Redirigiendo...' : 'Suscribirme al Turbo — $19.20/mes'}
+                      </button>
+                      <button
+                        onClick={() => handleSubscribe('base')}
+                        disabled={checkoutLoading !== null}
+                        className="w-full py-3 border-2 border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400 font-semibold rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-sm disabled:opacity-50"
+                      >
+                        {checkoutLoading === 'base' ? 'Redirigiendo...' : 'Suscribirme al Base — $11.45/mes'}
+                      </button>
+                    </>
+                  )}
+
+                  {subscription?.status === 'active' && subscription.plan === 'base' && (
                     <button
-                      onClick={handleUpgrade}
-                      className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:opacity-90 transition-opacity text-sm"
+                      onClick={() => handleSubscribe('turbo')}
+                      disabled={checkoutLoading !== null}
+                      className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:opacity-90 transition-opacity text-sm disabled:opacity-50"
                     >
-                      Mejorar a Turbo
+                      {checkoutLoading === 'turbo' ? 'Redirigiendo...' : 'Mejorar a Turbo'}
                     </button>
                   )}
 
@@ -371,29 +395,6 @@ export function Settings({ user, subscription, onBack }: SettingsProps) {
                     </a>
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Facturación */}
-            {activeTab === 'facturacion' && (
-              <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Facturación</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-8">
-                  Gestioná tu suscripción, historial de pagos y método de pago desde el portal de Lemon Squeezy.
-                </p>
-
-                <a
-                  href={PORTAL_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:opacity-90 transition-opacity text-sm"
-                >
-                  Abrir portal de facturación
-                </a>
-
-                <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-4">
-                  Los pagos son procesados de forma segura por Lemon Squeezy.
-                </p>
               </div>
             )}
 
