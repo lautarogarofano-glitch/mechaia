@@ -83,32 +83,6 @@ Cada imagen debe contar una historia completa:
 - El sombreado agrega profundidad: mas intenso en bordes, mas suave en centro.
 - Los contornos fuertes contrastan contra los rellenos suaves = efecto educativo profesional.
 
-## Personaje Levy — Mascota AI de SaaS Factory
-
-Cuando una imagen necesite un personaje o mascota, usar a **Levy** (el agente AI de SaaS Factory).
-
-**Asset:** `.claude/skills/video-visuals/assets/levy.png`
-
-### Como Incluir a Levy
-
-1. Pasar `assets/levy.png` como `--image` de referencia
-2. En el prompt: `"personaje robot AI estilo doodle basado en la referencia (cabeza metalica azul-morada, chip SF en la frente, ojos brillantes)"`
-3. Describir EXPRESION o POSE especifica al contexto
-
-### Cuando Incluir vs Excluir a Levy
-
-| Incluir Levy (SI) | Excluir Levy (NO) |
-|---------------------|---------------------|
-| Presentando un concepto central | Diagramas de flujo puros |
-| Comparaciones ANTES/DESPUES | Listas de features/acciones |
-| Recomendando una opcion | Timelines o evolucion de sistema |
-| Teasers / CTAs | Conceptos tecnicos abstractos |
-
-### Reglas de Posicionamiento
-- Levy va a la IZQUIERDA cuando señala contenido a la DERECHA
-- Levy va a la DERECHA cuando mira/señala contenido a la IZQUIERDA
-- NUNCA poner a Levy en el centro bloqueando el contenido principal
-
 ## Pipeline Completo
 
 ### Paso 1: Analizar el Contenido
@@ -140,15 +114,6 @@ Usar la skill `image-generation` que ya esta instalada:
 ```bash
 npx tsx .claude/skills/image-generation/scripts/generate-image.ts \
   --prompt "PROMPT_EN_ESPANOL" \
-  --output generadas/XX-nombre.png \
-  --aspect 16:9
-```
-
-Con Levy como referencia:
-```bash
-npx tsx .claude/skills/image-generation/scripts/generate-image.ts \
-  --prompt "PROMPT_EN_ESPANOL" \
-  --image .claude/skills/video-visuals/assets/levy.png \
   --output generadas/XX-nombre.png \
   --aspect 16:9
 ```

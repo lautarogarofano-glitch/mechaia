@@ -278,6 +278,27 @@ npm run process-docs:reset   # Reset de la knowledge_base
 - **Fix**: paginar explicitamente con `.range(from, from + 999)` en un loop, acumulando hasta que un batch venga con menos de 1000 filas.
 - **Aplicar en**: cualquier script de mantenimiento que necesite procesar TODA la KB (`knowledge_base`, `subscriptions`, `diagnostics`). Nunca confiar en `.limit(N)` para N > 1000.
 
+### 2026-05-10: Pipeline de generacion de videos pitch con IA (`scripts/video/`)
+- **Que es**: pipeline 100% autonomo que genera videos pitch a partir de un `.md` en `marketing/scripts/` (ej `pitch-60s.md`). Usa Edge TTS (voz argentina free) + Gemini Image (con avatar persistente) + ffmpeg con Ken Burns. Output a `marketing/output/`.
+- **TTS provider preference order**:
+  1. `MECHAIA_TTS_PROVIDER=edge|elevenlabs|gemini` explicito si esta seteado.
+  2. **ElevenLabs** si `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID` estan en `.env.local` (clone de voz tuya, paga $5+/mes desde 2025).
+  3. **Edge TTS** (es-AR-TomasNeural argentino, 100% gratis, sin signup) si el CLI `edge-tts` esta en PATH. **Es el default actual** porque no cuesta nada y suena natural argentino. Instalar: `brew install pipx && pipx install edge-tts`.
+  4. **Gemini Charon** como fallback (es OK pero acento mas neutro LATAM).
+  - Override de voz Edge: `MECHAIA_EDGE_VOICE=es-AR-ElenaNeural` (femenino) o `es-MX-JorgeNeural`, etc.
+- **Avatar persistente**: si `marketing/avatar/base.png` existe, `imagen.ts` lo manda como inline reference en CADA call a Gemini con el prefix "The SAME character shown in the reference image". Esto mantiene la identidad visual (cara, pelo, vestimenta) a traves de todos los beats. Personaje canonico actual: hombre 40 años, tecnico-fundador, look ingeniero-mecanico-SaaS hibrido. Para cambiarlo: `npm run avatar:variants` regenera 4 candidatos en `marketing/avatar/variants/`, copiar el elegido a `base.png`.
+- **Uso**: `npm run video -- pitch-60s` (horizontal 1920x1080) o `npm run video -- pitch-60s --vertical` (1080x1920).
+- **Cuotas free tier de Gemini para video**:
+  - `gemini-2.5-flash-tts`: 10 RPM, free tier OK con la key de prod o INGEST.
+  - `gemini-2.5-flash-image`: 10 RPM **SOLO** con `GOOGLE_AI_API_KEY` (prod). En `GOOGLE_AI_API_KEY_INGEST` el limit es `0` para image gen. El pipeline ya prefiere la prod para imagen automaticamente.
+  - `imagen-4.0-*`: requiere paid tier.
+  - **Override**: exportar `MECHAIA_VIDEO_KEY` o `MECHAIA_IMAGE_KEY` para forzar otra key.
+- **Rate limiting**: el orchestrator tiene `DELAY_BETWEEN_BEATS_MS = 12_000` + retry parseando `"retry in Xs"` de la respuesta 429. Para scripts de 8+ beats puede tardar 2+ min pero no rompe.
+- **ffmpeg debe tener libass**: el `brew install ffmpeg` base NO incluye libass/subtitles/drawtext. Hay que usar el tap: `brew uninstall ffmpeg && brew install homebrew-ffmpeg/ffmpeg/ffmpeg`. Verificar con `ffmpeg -version | grep enable-libass` y `ffmpeg -filters | grep subtitles`.
+- **Subtitulos en `.ass`, no `.srt`**: el filter `subtitles=path:force_style='X,Y'` de ffmpeg 8.x tira problemas de escaping de comas en linea de comando (ni con `\,` ni con spawnSync funciona consistente). La solucion robusta es generar un `.ass` con estilo embedido en el header `[V4+ Styles]` y pasarlo crudo: `-vf "subtitles=path.ass"`. Implementado en `scripts/video/lib/subtitles.ts`.
+- **ffmpeg concat demuxer resuelve paths relativos al `.txt`, no al cwd**: al armar `clips.txt` o `audios.txt` siempre usar `path.resolve(p)` para escribir paths absolutos. Si usas relativos, ffmpeg los concatena con el dirname del `.txt` y falla con "No such file or directory".
+- **Aplicar en**: cualquier extension del pipeline. Para musica de fondo: input adicional + `amix=duration=longest`. Para mas formatos (square 1:1): cambiar `[width, height]` en el orchestrator. Reutilizar tmp existente para iterar sin quemar cuota: ver `scripts/video/test-assemble.ts` (usa los assets cacheados de una corrida previa).
+
 ### 2026-05-09: ⚠️ Cuota DIARIA del Gemini Embedding free tier (1000 req/dia)
 - **Error**: el ingest masivo de opinautos (~824 chunks → 824+ embeddings) consumio toda la cuota diaria del free tier de `gemini-embedding-001`. Resultado: HTTP 429 con `quotaId: EmbedContentRequestsPerDayPerProjectPerModel-FreeTier`. La cuota NO se renueva hasta el siguiente dia UTC. **Esto rompe la app en prod**: cada call a `/api/diagnose` necesita 1 embedding para el RAG. Sin cuota, `searchKnowledgeBase` devuelve `[]` y el RAG no aporta contexto al modelo.
 - **Fix inmediato**: activar billing en Google AI Studio (https://aistudio.google.com/) → la cuota pasa de 1000/dia a tier pago (10K-1M segun plan). Mientras no haya billing: limitar el ingest masivo a tandas pequeñas distribuidas en varios dias.
