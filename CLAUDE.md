@@ -308,12 +308,35 @@ npm run process-docs:reset   # Reset de la knowledge_base
   3. Antes de cualquier script de ingest grande: agregar un check de cuota inicial (1 request de prueba), y al detectar 429, salir con mensaje claro.
   4. Considerar alternativa: usar el embedding API en modo batch o en horario nocturno cuando la cuota se renueva.
 
+### 2026-05-22: Ingests largos requieren `caffeinate` para que la Mac no duerma
+- **Error**: el ingest de dtc-database (15,722 chunks, ~4-5 horas estimadas) terminó tardando **8.5 horas** porque la Mac entró en sleep durante la noche. El cronómetro wall-clock del script siguió contando pero los requests se pausaron. NHTSA igual: 100 chunks en 267 min de wall clock vs los ~1.5 min esperados. La culpa NO es del script, ni de la red, ni de Gemini — es macOS poniendo el sistema a dormir cuando no hay actividad del usuario.
+- **Fix**: lanzar todos los ingests con `caffeinate -i npx tsx scripts/ingest-X.ts ...`. `caffeinate -i` previene **idle sleep** mientras el comando corra. Cuando termina, vuelve al comportamiento normal de energía. Cero impacto persistente.
+- **Aplicar en**: cualquier ingest > 30 min. Patrón:
+  ```bash
+  caffeinate -i npx tsx scripts/ingest-nhtsa.ts --delay=200 > /tmp/nhtsa.log 2>&1 &
+  ```
+
+### 2026-05-22: NHTSA borró `FLAT_TSBS.zip` de S3 — usar Wayback Machine
+- **Error**: `https://static.nhtsa.gov/odi/ffdd/tsbs/FLAT_TSBS.zip` devuelve HTTP 404 con `x-amz-delete-marker: true`. El mirror viejo `www-odi.nhtsa.dot.gov/downloads/folders/TSBS/` redirige al portal nuevo. Los endpoints API REST de NHTSA (`/safetyIssues/byKeywords?issueType=manufacturerCommunication`) **NO** exponen TSBs — devuelven consumer complaints incluso con ese filtro (bug del API). El dataset Socrata `hczg-qbhf` es solo un puntero "href" al archivo muerto.
+- **Fix**: bajar la copia del Wayback Machine (snapshot 2024-06-10, 41 MB zip / 1.1 GB descomprimido, 4.7M filas tab-separated):
+  ```
+  curl -sSL -o scripts/.cache/FLAT_TSBS.zip "https://web.archive.org/web/20240610104106id_/https://static.nhtsa.gov/odi/ffdd/tsbs/FLAT_TSBS.zip"
+  cd scripts/.cache && unzip -o FLAT_TSBS.zip
+  ```
+  Formato: 10 columnas TSV. Stream-parse obligatorio (no carga en RAM con readline). El script `scripts/ingest-nhtsa.ts` ya implementa este flujo: filtra marca MERCOSUR + año + summary > 80 chars + dedup por record_id, agrega modelos/años por TSB, cachea a `scripts/.cache/nhtsa-mercosur.json`.
+- **Aplicar en**: cualquier re-ingest de NHTSA. Si Wayback pierde la copia: scraping de `nhtsa.gov/recalls` per (year, make, model) como Plan C (más laburo).
+
 <!-- Cada vez que un error se repita, documentar aqui:
 ### YYYY-MM-DD: Titulo
 - **Error:**
 - **Fix:**
 - **Aplicar en:**
 -->
+
+### 2026-05-31: "Mensaje demasiado largo" en respuestas cortas del usuario
+- **Error**: el chat tiraba `Error: Mensaje demasiado largo` cuando el mecanico escribia un mensaje corto (ej "1.Aleatoriamente sin importar la condicion", 42 chars). La validacion en `api/diagnose.ts` recorria **todos** los mensajes del historial con `msg.content.length > 4000`, incluidas las **respuestas del propio asistente**. El frontend reenvia la conversacion entera en cada request; una respuesta de diagnostico de la IA (capada en `max_tokens=1500` ≈ 5000-7000 chars) supera los 4000 y, a partir de ahi, **todos** los mensajes siguientes del usuario fallan con 400.
+- **Fix**: validar el largo SOLO en mensajes con `role === 'user'` (los del asistente los genera el modelo y ya estan limitados por `max_tokens`), y subir el tope a 8000 para permitir pegar logs de OBD. Ver `api/diagnose.ts` (~linea 203).
+- **Aplicar en**: cualquier validacion de input en endpoints que reciben el historial completo de chat. No validar contenido generado por el servidor con las mismas reglas que el input del usuario. La regla de abuso (largo maximo) aplica solo a lo que escribe el humano.
 
 ---
 

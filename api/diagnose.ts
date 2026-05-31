@@ -200,8 +200,12 @@ async function innerHandler(req: VercelRequest, res: VercelResponse) {
     if (!Array.isArray(messages) || messages.length > 50) {
       return res.status(400).json({ error: 'Formato de mensajes inválido' });
     }
+    // Solo validamos el largo de los mensajes del USUARIO. Las respuestas del
+    // asistente las genera el propio modelo (capadas por max_tokens) y vuelven
+    // enteras en cada request: si las validáramos, una respuesta larga de la IA
+    // haría fallar todos los mensajes siguientes con "Mensaje demasiado largo".
     for (const msg of messages) {
-      if (typeof msg?.content === 'string' && msg.content.length > 4000) {
+      if (msg?.role === 'user' && typeof msg?.content === 'string' && msg.content.length > 8000) {
         return res.status(400).json({ error: 'Mensaje demasiado largo' });
       }
     }
