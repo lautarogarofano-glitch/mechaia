@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Eye, EyeOff } from 'lucide-react';
 import { LightLiquidBackground } from './glass/LightLiquidBackground';
+import { CONTRACT_VERSION, ACCEPTED_DOCUMENTS, storePendingAcceptance } from '../lib/legal';
 
 interface AuthProps {
   onAuthSuccess: () => void;
@@ -27,9 +28,20 @@ export function Auth({ onAuthSuccess }: AuthProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [acceptConditions, setAcceptConditions] = useState(false);
+  const [acceptAi, setAcceptAi] = useState(false);
+  const [acceptIntl, setAcceptIntl] = useState(false);
+
+  const allAccepted = acceptConditions && acceptAi && acceptIntl;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (mode === 'register' && !allAccepted) {
+      setError('Para crear tu cuenta tenés que aceptar las condiciones y los consentimientos.');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setSuccessMessage('');
@@ -42,6 +54,15 @@ export function Auth({ onAuthSuccess }: AuthProps) {
       } else if (mode === 'register') {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
+        // Guardamos el consentimiento dado para registrarlo (con IP/user-agent) en el primer
+        // acceso autenticado, ya que en el signup todavía no hay sesión (email a confirmar).
+        storePendingAcceptance({
+          contractVersion: CONTRACT_VERSION,
+          acceptedConditions: acceptConditions,
+          acceptedAiConsent: acceptAi,
+          acceptedIntlTransfer: acceptIntl,
+          documents: ACCEPTED_DOCUMENTS,
+        });
         setSuccessMessage('¡Cuenta creada! Revisá tu email para confirmar y luego iniciá sesión.');
         setMode('login');
       } else if (mode === 'reset') {
@@ -145,10 +166,58 @@ export function Auth({ onAuthSuccess }: AuthProps) {
             </div>
           )}
 
+          {mode === 'register' && (
+            <div className="space-y-3 pt-1">
+              <label className="flex items-start gap-3 text-xs text-slate-600 dark:text-slate-400 leading-relaxed cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={acceptConditions}
+                  onChange={(e) => setAcceptConditions(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-blue-600"
+                />
+                <span>
+                  Acepto las{' '}
+                  <a href="/condiciones" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-800 dark:hover:text-slate-200">Condiciones Generales</a>,{' '}
+                  la <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-800 dark:hover:text-slate-200">Política de Privacidad</a>,{' '}
+                  la <a href="/refund" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-800 dark:hover:text-slate-200">Política de Reembolsos</a>{' '}
+                  y la <a href="/uso-aceptable" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-800 dark:hover:text-slate-200">Política de Uso Aceptable</a>.
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 text-xs text-slate-600 dark:text-slate-400 leading-relaxed cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={acceptAi}
+                  onChange={(e) => setAcceptAi(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-blue-600"
+                />
+                <span>
+                  Comprendo y acepto el{' '}
+                  <a href="/consentimiento-ia" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-800 dark:hover:text-slate-200">uso de inteligencia artificial</a>:
+                  es una herramienta de apoyo que no sustituye mi criterio profesional y cuyas respuestas debo validar.
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 text-xs text-slate-600 dark:text-slate-400 leading-relaxed cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={acceptIntl}
+                  onChange={(e) => setAcceptIntl(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-blue-600"
+                />
+                <span>
+                  Consiento la{' '}
+                  <a href="/transferencias-internacionales" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-800 dark:hover:text-slate-200">transferencia internacional de mis datos</a>{' '}
+                  a los proveedores tecnológicos indicados.
+                </span>
+              </label>
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={loading}
-            className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold disabled:opacity-50"
+            disabled={loading || (mode === 'register' && !allAccepted)}
+            className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading
               ? 'Cargando...'
@@ -158,15 +227,6 @@ export function Auth({ onAuthSuccess }: AuthProps) {
               ? 'Crear cuenta'
               : 'Enviar email de recuperación'}
           </button>
-
-          {mode === 'register' && (
-            <p className="text-xs text-center text-slate-500 dark:text-slate-400 leading-relaxed">
-              Al crear la cuenta aceptás los{' '}
-              <a href="/terms" className="underline hover:text-slate-700 dark:hover:text-slate-300">Términos</a>,{' '}
-              la <a href="/privacy" className="underline hover:text-slate-700 dark:hover:text-slate-300">Política de Privacidad</a>{' '}
-              y la <a href="/refund" className="underline hover:text-slate-700 dark:hover:text-slate-300">Política de Reembolsos</a>.
-            </p>
-          )}
         </form>
 
         <div className="text-center mt-6 space-y-2">

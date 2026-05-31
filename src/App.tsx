@@ -10,10 +10,11 @@ import { WelcomeSetup } from './components/WelcomeSetup';
 import { Settings } from './components/Settings';
 import { Landing } from './components/Landing';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
-import { TermsOfService } from './components/TermsOfService';
 import { RefundPolicy } from './components/RefundPolicy';
+import { LegalDoc } from './components/LegalDoc';
 import { TurbulenceFilter } from './components/glass/TurbulenceFilter';
 import { supabase } from './lib/supabase';
+import { readPendingAcceptance, clearPendingAcceptance } from './lib/legal';
 import type { User } from '@supabase/supabase-js';
 import type { VehicleData, DiagnosisSession, Message, Subscription } from './types/vehicle';
 import './App.css';
@@ -30,8 +31,11 @@ function App() {
   }, []);
 
   if (pathname === '/privacy') return <PrivacyPolicy />;
-  if (pathname === '/terms') return <TermsOfService />;
+  if (pathname === '/terms' || pathname === '/condiciones') return <LegalDoc docKey="condiciones" />;
   if (pathname === '/refund') return <RefundPolicy />;
+  if (pathname === '/uso-aceptable') return <LegalDoc docKey="uso-aceptable" />;
+  if (pathname === '/consentimiento-ia') return <LegalDoc docKey="consentimiento-ia" />;
+  if (pathname === '/transferencias-internacionales') return <LegalDoc docKey="transferencias-internacionales" />;
 
   return (
     <>
@@ -39,6 +43,24 @@ function App() {
       <MainApp />
     </>
   );
+}
+
+// Registra la aceptación del contrato (con IP/user-agent capturados server-side) en el primer
+// acceso autenticado tras el signup. Solo actúa si hay un consentimiento pendiente guardado en
+// el alta — los usuarios ya existentes no se ven afectados. Es idempotente por versión.
+async function recordContractAcceptance(accessToken: string) {
+  const pending = readPendingAcceptance();
+  if (!pending) return;
+  try {
+    const res = await fetch('/api/record-acceptance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(pending),
+    });
+    if (res.ok) clearPendingAcceptance();
+  } catch {
+    // Falló la red: se reintenta en el próximo acceso autenticado.
+  }
 }
 
 function MainApp() {
@@ -65,6 +87,9 @@ function MainApp() {
       if (session?.user && !session.user.user_metadata?.workshop_name) {
         setShowWelcome(true);
       }
+      if (session?.access_token) {
+        recordContractAcceptance(session.access_token);
+      }
       setLoading(false);
     });
 
@@ -75,6 +100,9 @@ function MainApp() {
       }
       if (event === 'SIGNED_IN' && session?.user && !session.user.user_metadata?.workshop_name) {
         setShowWelcome(true);
+      }
+      if (event === 'SIGNED_IN' && session?.access_token) {
+        recordContractAcceptance(session.access_token);
       }
     });
 
