@@ -338,6 +338,11 @@ npm run process-docs:reset   # Reset de la knowledge_base
 - **Fix**: validar el largo SOLO en mensajes con `role === 'user'` (los del asistente los genera el modelo y ya estan limitados por `max_tokens`), y subir el tope a 8000 para permitir pegar logs de OBD. Ver `api/diagnose.ts` (~linea 203).
 - **Aplicar en**: cualquier validacion de input en endpoints que reciben el historial completo de chat. No validar contenido generado por el servidor con las mismas reglas que el input del usuario. La regla de abuso (largo maximo) aplica solo a lo que escribe el humano.
 
+### 2026-06-02: Alerta de seguridad Supabase — `knowledge_base` y `rate_limits` sin RLS
+- **Error**: Supabase mando un mail "Critical issue: Table publicly accessible" (`rls_disabled_in_public`). Las tablas `knowledge_base` (49k chunks del RAG) y `rate_limits` tenian RLS **deshabilitado**, asi que cualquiera con la URL del proyecto + la anon key podia leer/editar/borrar todo su contenido. Las demas tablas (`diagnostics`, `subscriptions`, etc.) ya tenian RLS + policies.
+- **Fix**: `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` en ambas, **sin crear policies**. Ambas se acceden SOLO server-side con el service role key (que bypassa RLS): `knowledge_base` via RPC `search_knowledge_base` y `rate_limits` via insert/select en `api/diagnose.ts`. El frontend (`src/`) no las toca. RLS sin policies = acceso anonimo bloqueado del todo, servidor sigue igual. Ver `supabase/enable_rls_knowledge_base_rate_limits.sql`. Verificado: anon recibe `[]`, service role lee normal, 49096 chunks intactos.
+- **Aplicar en**: TODA tabla nueva debe tener RLS habilitado desde el `CREATE TABLE` (es regla del CLAUDE.md pero se coló). Si la tabla es solo server-side (service role), habilitar RLS sin policies alcanza. Si la lee/escribe el cliente con anon key, ademas hay que crear las policies. Correr `get_advisors(type: "security")` o el query de `pg_class.relrowsecurity` despues de cualquier `CREATE TABLE` para no volver a recibir el mail.
+
 ---
 
 *Mechaia V1 | Vite + React 18 + Supabase + Vercel functions. No es Next.js. Filosofia Agent-First aplicada al stack actual.*
